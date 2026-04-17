@@ -1,2 +1,1 @@
-# litdoc
-Literate Documentation
+# Literate Documentation (`litdoc`)
