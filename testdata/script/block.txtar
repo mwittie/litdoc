@@ -1,0 +1,6 @@
+stdin input.md
+exec litdoc block -o text
+stdout 'code'
+
+-- input.md --
+code
