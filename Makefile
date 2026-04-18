@@ -1,10 +1,18 @@
-.PHONY: build test clean
+.PHONY: pre-pr
+pre-pr: test
 
-build:
-	go build -o bin/litdoc .
+GO_FILES := $(shell find . -name '*.go' -not -path './vendor/*')
 
+bin/litdoc: $(GO_FILES)
+	@go build -o bin/litdoc .
+
+.PHONY: build
+build: bin/litdoc
+
+.PHONY: test
 test: build
-	go test ./... --count=1
+	@go test ./... --count=1
 
+.PHONY: clean
 clean:
-	rm -rf bin/
+	@rm -rf bin/
