@@ -2,25 +2,22 @@ package main_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
-
-	"litdoc/cmd"
 
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
-func TestMain(m *testing.M) {
-	testscript.Main(m, map[string]func(){
-		"litdoc": func() {
-			if err := cmd.Execute(); err != nil {
-				os.Exit(1)
-			}
-		},
-	})
-}
-
 func TestScript(t *testing.T) {
+	binPath, err := filepath.Abs("bin")
+	if err != nil {
+		t.Fatal(err)
+	}
 	testscript.Run(t, testscript.Params{
 		Dir: "testdata/script",
+		Setup: func(env *testscript.Env) error {
+			env.Setenv("PATH", binPath+string(os.PathListSeparator)+env.Getenv("PATH"))
+			return nil
+		},
 	})
 }
