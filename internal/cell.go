@@ -29,23 +29,19 @@ func (t StaticCell) Render() (string, error) {
 
 type BashCell struct {
 	fencedCode string
-	output     string
+	output     Output
 }
 
-func MakeBashCellFromRaw(fencedCode, output string) BashCell {
+func MakeBashCellFromRaw(fencedCode string, output Output) BashCell {
 	return BashCell{fencedCode: fencedCode, output: output}
 }
 
 func (c BashCell) Execute() (Cell, error) {
-	output := "output" // stub
-	return BashCell{fencedCode: c.fencedCode, output: output}, nil
+	return BashCell{fencedCode: c.fencedCode, output: MakeOutput("output")}, nil // stub
 }
 
 func (c BashCell) Render() (string, error) {
-	if c.output == "" {
-		return c.fencedCode, nil
-	}
-	return c.fencedCode + "\n" + FormatOutput(c.output), nil
+	return c.fencedCode + c.output.Render(), nil
 }
 
 type InfoString struct {
@@ -82,7 +78,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 		switch {
 		case info.IsLitdoc && info.Lang == "bash":
 			fencedCode := string(b.content)
-			output, consumed := ScanOutput(blocks[i+1:])
+			output, consumed := OutputFromBlocks(blocks[i+1:])
 			cells = append(cells, MakeBashCellFromRaw(fencedCode, output))
 			i += 1 + consumed
 			continue

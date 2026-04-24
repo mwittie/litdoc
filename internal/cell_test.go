@@ -100,7 +100,7 @@ func TestMakeBashCellFromRaw(t *testing.T) {
 	code := "```bash\necho hello\n```\n"
 
 	// when
-	gotCell := internal.MakeBashCellFromRaw(code, "")
+	gotCell := internal.MakeBashCellFromRaw(code, internal.Output{})
 
 	// then
 	got, err := gotCell.Render()
@@ -111,7 +111,7 @@ func TestMakeBashCellFromRaw(t *testing.T) {
 func TestBashCellExecute(t *testing.T) {
 	// given
 	fencedCode := "```bash\necho hello\n```\n"
-	cell := internal.MakeBashCellFromRaw(fencedCode, "")
+	cell := internal.MakeBashCellFromRaw(fencedCode, internal.Output{})
 
 	// when
 	gotCell, err := cell.Execute()
@@ -128,7 +128,7 @@ func TestBashCellRender(t *testing.T) {
 	t.Run("without output", func(t *testing.T) {
 		// given
 		code := "```bash\necho hello\n```\n"
-		cell := internal.MakeBashCellFromRaw(code, "")
+		cell := internal.MakeBashCellFromRaw(code, internal.Output{})
 
 		// when
 		gotContent, err := cell.Render()
@@ -141,7 +141,7 @@ func TestBashCellRender(t *testing.T) {
 	t.Run("with output", func(t *testing.T) {
 		// given
 		fencedCode := "```bash\necho hello\n```\n"
-		cell := internal.MakeBashCellFromRaw(fencedCode, "")
+		cell := internal.MakeBashCellFromRaw(fencedCode, internal.Output{})
 		executed, err := cell.Execute()
 		require.NoError(t, err)
 
