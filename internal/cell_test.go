@@ -154,7 +154,7 @@ func TestBashCellRender(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	t.Run("calls Execute on each cell and returns results", func(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
 		// given
 		result := NewMockCell(t)
 		cell := NewMockCell(t)
@@ -170,7 +170,7 @@ func TestExecute(t *testing.T) {
 		assert.Equal(t, result, gotCells[0])
 	})
 
-	t.Run("returns error when a cell Execute fails", func(t *testing.T) {
+	t.Run("cell.Execute fails", func(t *testing.T) {
 		// given
 		cell := NewMockCell(t)
 		cell.EXPECT().Execute().Return(nil, assert.AnError)
@@ -186,7 +186,7 @@ func TestExecute(t *testing.T) {
 }
 
 func TestCompose(t *testing.T) {
-	t.Run("calls Render on each cell and returns concatenated results", func(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
 		// given
 		cell1 := NewMockCell(t)
 		cell1.EXPECT().Render().Return("hello", nil)
@@ -202,7 +202,7 @@ func TestCompose(t *testing.T) {
 		assert.Equal(t, "hello world", got)
 	})
 
-	t.Run("returns error when a cell Render fails", func(t *testing.T) {
+	t.Run("cell.Render fails", func(t *testing.T) {
 		// given
 		cell := NewMockCell(t)
 		cell.EXPECT().Render().Return("", assert.AnError)
@@ -242,7 +242,7 @@ func TestClassify(t *testing.T) {
 		assert.Equal(t, "hello", got)
 	})
 
-	t.Run("litdoc block becomes BashCell", func(t *testing.T) {
+	t.Run("litdoc bash block becomes BashCell", func(t *testing.T) {
 		// given
 		code := "```bash | litdoc\necho hello\n```\n"
 		blocks := []internal.Block{bashLitdocBlock(code)}
@@ -260,7 +260,7 @@ func TestClassify(t *testing.T) {
 		assert.Equal(t, code, rendered)
 	})
 
-	t.Run("litdoc block prevents merging of surrounding text blocks", func(t *testing.T) {
+	t.Run("mixed block types are each classified independently", func(t *testing.T) {
 		// given
 		code := "```bash | litdoc\necho hello\n```\n"
 		blocks := []internal.Block{
@@ -285,19 +285,6 @@ func TestClassify(t *testing.T) {
 		assert.Equal(t, "after", rendered2)
 	})
 
-	t.Run("litdoc block with unsupported language returns error", func(t *testing.T) {
-		// given
-		blocks := []internal.Block{
-			bashLitdocBlock("```go | litdoc\nfmt.Println()\n```\n"),
-		}
-
-		// when
-		_, err := internal.Classify(blocks)
-
-		// then
-		require.ErrorContains(t, err, "unsupported language")
-	})
-
 	t.Run("non-litdoc fenced code block becomes StaticCell", func(t *testing.T) {
 		// given
 		code := "```bash\necho hello\n```\n"
@@ -314,5 +301,18 @@ func TestClassify(t *testing.T) {
 		rendered, err := cells[0].Render()
 		require.NoError(t, err)
 		assert.Equal(t, code, rendered)
+	})
+
+	t.Run("litdoc block with unsupported language", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			bashLitdocBlock("```go | litdoc\nfmt.Println()\n```\n"),
+		}
+
+		// when
+		_, err := internal.Classify(blocks)
+
+		// then
+		require.ErrorContains(t, err, "unsupported language")
 	})
 }
