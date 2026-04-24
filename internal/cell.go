@@ -37,7 +37,9 @@ func MakeBashCellFromRaw(fencedCode, output string) BashCell {
 }
 
 func (c BashCell) Execute() (Cell, error) {
-	return c, nil
+	output := "output" // stub
+	wrapped := "<!-- BEGIN litdoc OUTPUT -->\n" + output + "\n<!-- END litdoc OUTPUT -->\n"
+	return BashCell{fencedCode: c.fencedCode, output: wrapped}, nil
 }
 
 func (c BashCell) Render() (string, error) {

@@ -120,7 +120,8 @@ func TestBashCellExecute(t *testing.T) {
 	require.NoError(t, err)
 	rendered, err := gotCell.Render()
 	require.NoError(t, err)
-	assert.Equal(t, fencedCode, rendered)
+	want := fencedCode + "\n<!-- BEGIN litdoc OUTPUT -->\noutput\n<!-- END litdoc OUTPUT -->\n"
+	assert.Equal(t, want, rendered)
 }
 
 func TestBashCellRender(t *testing.T) {
@@ -149,7 +150,8 @@ func TestBashCellRender(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, fencedCode, gotContent)
+		want := fencedCode + "\n<!-- BEGIN litdoc OUTPUT -->\noutput\n<!-- END litdoc OUTPUT -->\n"
+		assert.Equal(t, want, gotContent)
 	})
 }
 

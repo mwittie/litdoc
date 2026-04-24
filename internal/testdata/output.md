@@ -32,8 +32,16 @@
 echo "hello, world"
 ```
 
+<!-- BEGIN litdoc OUTPUT -->
+output
+<!-- END litdoc OUTPUT -->
+
 - HTML comment
 
 <!--bash | litdoc
 echo "something to run"
 -->
+
+<!-- BEGIN litdoc OUTPUT -->
+output
+<!-- END litdoc OUTPUT -->
