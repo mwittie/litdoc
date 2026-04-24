@@ -1,43 +1,39 @@
-# Hello
+# Usage examples
 
-The following fenced code blocks should be ignored:
+## Content blocks that should be copied over without execution
 
-```bash
-echo "just, bash"
-```
+- Text content (and the headings above)
 
-This next one should be executed:
+- Static fenced code blocks
+
+   ```bash
+   echo "static"
+   ```
+
+- HTML comments
+
+   <!--
+   comment
+   -->
+
+- Verbatim blocks
+
+   ````md
+   ```bash | litdoc
+   echo "hello, world"
+   ```
+   ````
+
+## Content blocks that should be executed
+
+- Fenced code block
 
 ```bash | litdoc
 echo "hello, world"
 ```
 
-Another one to be ignored:
-
-<!--
-comment
--->
-
-And one more to be executed:
+- HTML comment
 
 <!--bash | litdoc
 echo "something to run"
 -->
-
-Here's a previously executed block:
-
-```bash | litdoc
-echo "hello, world"
-```
-
-<!-- litdoc -->
-output
-<!-- /litdoc -->
-
-And a verbatim block that should be ignored:
-
-````md
-```bash | litdoc
-echo "hello, world"
-```
-````

@@ -1,0 +1,9 @@
+template: testify
+filename: "{{.InterfaceName}}_mock_test.go"
+packages:
+  litdoc/internal:
+    interfaces:
+      Cell:
+        config:
+          dir: ./internal/
+          pkgname: internal_test
