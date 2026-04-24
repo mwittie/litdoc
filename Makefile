@@ -1,9 +1,9 @@
 .PHONY: pre-pr
-pre-pr: fmt-check vet test
+pre-pr: clean mock fmt-check vet test
 
-.PHONY: vet
-vet:
-	@go vet ./...
+.PHONY: fmt
+fmt:
+	@gofmt -w .
 
 .PHONY: fmt-check
 fmt-check:
@@ -14,18 +14,31 @@ fmt-check:
 		exit 1; \
 	fi
 
+.PHONY: vet
+vet:
+	@go vet ./...
+
+.PHONY: mock
+mock:
+	@mockery
+
+.PHONY: mock-clean
+mock-clean:
+	@find . \( -name '*_mock_test.go' -o -name '*_mock.go' \) -not -path './vendor/*' -delete
+
 GO_FILES := $(shell find . -name '*.go' -not -path './vendor/*')
+GOCACHE ?= /tmp/litdoc-go-build
 
 bin/litdoc: $(GO_FILES)
-	@go build -o bin/litdoc .
+	@GOCACHE=$(GOCACHE) go build -o bin/litdoc .
 
 .PHONY: build
 build: bin/litdoc
 
 .PHONY: test
 test: build
-	@go test ./... --count=1
+	@GOCACHE=$(GOCACHE) go test ./... --count=1
 
 .PHONY: clean
-clean:
+clean: mock-clean
 	@rm -rf bin/
