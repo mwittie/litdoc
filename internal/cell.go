@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 type Cell interface {
@@ -102,13 +103,13 @@ func Execute(cells []Cell) ([]Cell, error) {
 }
 
 func Compose(cells []Cell) (string, error) {
-	var dst string
+	var dst strings.Builder
 	for _, c := range cells {
 		rendered, err := c.Render()
 		if err != nil {
 			return "", fmt.Errorf("rendering cell: %w", err)
 		}
-		dst += rendered
+		dst.WriteString(rendered)
 	}
-	return dst, nil
+	return dst.String(), nil
 }
