@@ -74,8 +74,7 @@ func ParseInfoString(b Block) InfoString {
 
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
-	for i := 0; i < len(blocks); i++ {
-		b := blocks[i]
+	for _, b := range blocks {
 		info := ParseInfoString(b)
 		switch {
 		case info.IsLitdoc && info.Lang == "bash":
