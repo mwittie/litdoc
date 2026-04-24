@@ -32,9 +32,9 @@
 echo "hello, world"
 ```
 
-<!-- BEGIN litdoc OUTPUT -->
+<!-- BEGIN LITDOC OUTPUT -->
 output
-<!-- END litdoc OUTPUT -->
+<!-- END LITDOC OUTPUT -->
 
 - HTML comment
 
@@ -42,9 +42,9 @@ output
 echo "something to run"
 -->
 
-<!-- BEGIN litdoc OUTPUT -->
+<!-- BEGIN LITDOC OUTPUT -->
 output
-<!-- END litdoc OUTPUT -->
+<!-- END LITDOC OUTPUT -->
 
 - Fenced code block with previously generate output
 
@@ -52,6 +52,6 @@ output
 echo "hello, world"
 ```
 
-<!-- BEGIN litdoc OUTPUT -->
+<!-- BEGIN LITDOC OUTPUT -->
 output
-<!-- END litdoc OUTPUT -->
+<!-- END LITDOC OUTPUT -->

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	outputBeginMarker = "<!-- BEGIN litdoc OUTPUT -->"
-	outputEndMarker   = "<!-- END litdoc OUTPUT -->"
+	OutputBeginMarker = "<!-- BEGIN LITDOC OUTPUT -->\n"
+	OutputEndMarker   = "<!-- END LITDOC OUTPUT -->\n"
 )
 
 type Output struct {
@@ -22,15 +22,15 @@ func (o Output) Render() string {
 	if o.content == "" {
 		return ""
 	}
-	return "\n" + outputBeginMarker + "\n" + o.content + "\n" + outputEndMarker + "\n"
+	return "\n" + OutputBeginMarker + o.content + "\n" + OutputEndMarker
 }
 
 func isOutputBegin(b Block) bool {
-	return b.kind == BlockKindHTMLComment && bytes.HasPrefix(b.content, []byte(outputBeginMarker))
+	return b.kind == BlockKindHTMLComment && bytes.HasPrefix(b.content, []byte(OutputBeginMarker))
 }
 
 func isOutputEnd(b Block) bool {
-	return b.kind == BlockKindHTMLComment && bytes.HasPrefix(b.content, []byte(outputEndMarker))
+	return b.kind == BlockKindHTMLComment && bytes.HasPrefix(b.content, []byte(OutputEndMarker))
 }
 
 // OutputFromBlocks looks for an output block at the start of blocks,

@@ -28,7 +28,7 @@ func TestOutputRender(t *testing.T) {
 		got := output.Render()
 
 		// then
-		assert.Equal(t, "\n<!-- BEGIN litdoc OUTPUT -->\nhello\n<!-- END litdoc OUTPUT -->\n", got)
+		assert.Equal(t, "\n"+internal.OutputBeginMarker+"hello\n"+internal.OutputEndMarker, got)
 	})
 }
 
@@ -40,15 +40,15 @@ func TestOutputFromBlocks(t *testing.T) {
 		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
 	}
 	wantOutput := func(content string) string {
-		return "\n<!-- BEGIN litdoc OUTPUT -->\n" + content + "\n<!-- END litdoc OUTPUT -->\n"
+		return internal.MakeOutput(content).Render()
 	}
 
 	t.Run("output block is scanned in", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			htmlComment("<!-- BEGIN litdoc OUTPUT -->\n"),
+			htmlComment(internal.OutputBeginMarker),
 			text("hello\n"),
-			htmlComment("<!-- END litdoc OUTPUT -->\n"),
+			htmlComment(internal.OutputEndMarker),
 		}
 
 		// when
@@ -63,9 +63,9 @@ func TestOutputFromBlocks(t *testing.T) {
 		// given
 		blocks := []internal.Block{
 			text("\n"),
-			htmlComment("<!-- BEGIN litdoc OUTPUT -->\n"),
+			htmlComment(internal.OutputBeginMarker),
 			text("hello\n"),
-			htmlComment("<!-- END litdoc OUTPUT -->\n"),
+			htmlComment(internal.OutputEndMarker),
 		}
 
 		// when

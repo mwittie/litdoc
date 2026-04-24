@@ -44,6 +44,6 @@ echo "something to run"
 echo "hello, world"
 ```
 
-<!-- BEGIN litdoc OUTPUT -->
+<!-- BEGIN LITDOC OUTPUT -->
 output
-<!-- END litdoc OUTPUT -->
+<!-- END LITDOC OUTPUT -->
