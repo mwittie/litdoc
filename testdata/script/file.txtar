@@ -1,6 +1,17 @@
-stdin input.md
-exec litdoc file
-stdout '# Hello'
+exec litdoc file -i input.md
+stdout ''
 
 -- input.md --
 # Hello
+
+```bash
+echo "hello, world"
+```
+
+some text
+
+<!--
+comment
+-->
+
+more text
