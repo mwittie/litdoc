@@ -1,4 +1,4 @@
-name: test
+name: ci
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,4 +22,6 @@ jobs:
           name: litdoc
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
+      - run: nix develop --ignore-environment --command make fmt-check
+      - run: nix develop --ignore-environment --command make vet
       - run: nix develop --ignore-environment --command make test

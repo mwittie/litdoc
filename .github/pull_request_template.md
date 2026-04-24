@@ -6,4 +6,4 @@
 If any of these checks are missing, please provide an explanation.
 
 - [ ] I have updated README files, if applicable.
-- [ ] I have run `make pre-pr` and all checks have passed.
+- [ ] This PR is small, otherwise explain why.
