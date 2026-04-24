@@ -1,5 +1,22 @@
 .PHONY: pre-pr
-pre-pr: test
+pre-pr: fmt-check vet test
+
+.PHONY: fmt
+fmt:
+	@gofmt -w .
+
+.PHONY: fmt-check
+fmt-check:
+	@unformatted=$$(gofmt -l .); \
+	if [ -n "$$unformatted" ]; then \
+		echo "unformatted files:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+
+.PHONY: vet
+vet:
+	@go vet ./...
 
 .PHONY: mock
 mock:
