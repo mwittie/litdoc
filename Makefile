@@ -1,5 +1,5 @@
 .PHONY: pre-pr
-pre-pr: fmt-check vet test
+pre-pr: clean mock fmt-check vet test
 
 .PHONY: fmt
 fmt:
@@ -40,5 +40,5 @@ test: build
 	@GOCACHE=$(GOCACHE) go test ./... --count=1
 
 .PHONY: clean
-clean:
+clean: mock-clean
 	@rm -rf bin/
