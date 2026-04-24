@@ -38,15 +38,14 @@ func MakeBashCellFromRaw(fencedCode, output string) BashCell {
 
 func (c BashCell) Execute() (Cell, error) {
 	output := "output" // stub
-	wrapped := "<!-- BEGIN litdoc OUTPUT -->\n" + output + "\n<!-- END litdoc OUTPUT -->\n"
-	return BashCell{fencedCode: c.fencedCode, output: wrapped}, nil
+	return BashCell{fencedCode: c.fencedCode, output: output}, nil
 }
 
 func (c BashCell) Render() (string, error) {
 	if c.output == "" {
 		return c.fencedCode, nil
 	}
-	return c.fencedCode + "\n" + c.output, nil
+	return c.fencedCode + "\n" + FormatOutput(c.output), nil
 }
 
 type InfoString struct {
@@ -76,17 +75,23 @@ func ParseInfoString(b Block) InfoString {
 
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
-	for _, b := range blocks {
+	i := 0
+	for i < len(blocks) {
+		b := blocks[i]
 		info := ParseInfoString(b)
 		switch {
 		case info.IsLitdoc && info.Lang == "bash":
-			cell := MakeBashCellFromRaw(string(b.content), "")
-			cells = append(cells, cell)
+			fencedCode := string(b.content)
+			output, consumed := ScanOutput(blocks[i+1:])
+			cells = append(cells, MakeBashCellFromRaw(fencedCode, output))
+			i += 1 + consumed
+			continue
 		case info.IsLitdoc:
 			return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 		default:
 			cells = append(cells, MakeStaticCellFromRaw(string(b.content)))
 		}
+		i++
 	}
 	return cells, nil
 }

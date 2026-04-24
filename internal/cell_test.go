@@ -305,6 +305,31 @@ func TestClassify(t *testing.T) {
 		assert.Equal(t, code, rendered)
 	})
 
+	t.Run("output block following bash cell is loaded into BashCell output", func(t *testing.T) {
+		// given - mirrors what tree-sitter produces: three separate blocks for the output section
+		code := "```bash | litdoc\necho hello\n```\n"
+		blocks := []internal.Block{
+			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte("<!-- BEGIN litdoc OUTPUT -->\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("old output\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte("<!-- END litdoc OUTPUT -->\n")),
+		}
+
+		// when
+		cells, err := internal.Classify(blocks)
+
+		// then
+		require.NoError(t, err)
+		require.Len(t, cells, 1)
+		_, ok := cells[0].(internal.BashCell)
+		require.True(t, ok, "expected BashCell, got %T", cells[0])
+		rendered, err := cells[0].Render()
+		require.NoError(t, err)
+		wantOutput := "<!-- BEGIN litdoc OUTPUT -->\nold output\n<!-- END litdoc OUTPUT -->\n"
+		assert.Equal(t, code+"\n"+wantOutput, rendered)
+	})
+
 	t.Run("litdoc block with unsupported language", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{

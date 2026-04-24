@@ -37,3 +37,13 @@ echo "hello, world"
 <!--bash | litdoc
 echo "something to run"
 -->
+
+- Fenced code block with previously generate output
+
+```bash | litdoc
+echo "hello, world"
+```
+
+<!-- BEGIN litdoc OUTPUT -->
+output
+<!-- END litdoc OUTPUT -->
