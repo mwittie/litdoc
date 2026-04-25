@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 )
 
@@ -36,24 +37,24 @@ func isOutputEnd(b Block) bool {
 // OutputFromBlocks looks for an output block at the start of blocks,
 // skipping leading whitespace text blocks. Returns the Output and the number
 // of blocks consumed. consumed is 0 if no output block was found.
-func OutputFromBlocks(blocks []Block) (Output, int) {
+// Returns an error if an opening marker is found without a closing marker.
+func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	i := 0
 	for i < len(blocks) && blocks[i].kind == BlockKindText && strings.TrimSpace(string(blocks[i].content)) == "" {
 		i++
 	}
 	if i >= len(blocks) || !isOutputBegin(blocks[i]) {
-		return Output{}, 0
+		return Output{}, 0, nil
 	}
 	i++ // skip BEGIN block
 	var buf strings.Builder
 	for i < len(blocks) {
 		if isOutputEnd(blocks[i]) {
 			i++
-			break
+			return MakeOutput(strings.TrimSuffix(buf.String(), "\n")), i, nil
 		}
 		buf.Write(blocks[i].content)
 		i++
 	}
-
-	return MakeOutput(strings.TrimSuffix(buf.String(), "\n")), i
+	return Output{}, 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
 }

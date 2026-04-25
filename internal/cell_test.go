@@ -95,74 +95,6 @@ func TestParseInfoString(t *testing.T) {
 	}
 }
 
-func TestBashCellFromBlocks(t *testing.T) {
-	bashLitdocBlock := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(content))
-	}
-	htmlComment := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(content))
-	}
-	text := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
-	}
-
-	t.Run("bash cell without output consumes one block", func(t *testing.T) {
-		// given
-		code := "```bash | litdoc\necho hello\n```\n"
-		blocks := []internal.Block{bashLitdocBlock(code)}
-
-		// when
-		cell, consumed := internal.BashCellFromBlocks(blocks)
-
-		// then
-		rendered, err := cell.Render()
-		require.NoError(t, err)
-		assert.Equal(t, code, rendered)
-		assert.Equal(t, 1, consumed)
-	})
-
-	t.Run("bash cell with output block consumes all output blocks", func(t *testing.T) {
-		// given
-		code := "```bash | litdoc\necho hello\n```\n"
-		blocks := []internal.Block{
-			bashLitdocBlock(code),
-			htmlComment(internal.OutputBeginMarker),
-			text("hello\n"),
-			htmlComment(internal.OutputEndMarker),
-		}
-
-		// when
-		cell, consumed := internal.BashCellFromBlocks(blocks)
-
-		// then
-		rendered, err := cell.Render()
-		require.NoError(t, err)
-		assert.Equal(t, code+internal.MakeOutput("hello").Render(), rendered)
-		assert.Equal(t, 4, consumed)
-	})
-
-	t.Run("bash cell with whitespace gap before output consumes whitespace blocks too", func(t *testing.T) {
-		// given
-		code := "```bash | litdoc\necho hello\n```\n"
-		blocks := []internal.Block{
-			bashLitdocBlock(code),
-			text("\n"),
-			htmlComment(internal.OutputBeginMarker),
-			text("hello\n"),
-			htmlComment(internal.OutputEndMarker),
-		}
-
-		// when
-		cell, consumed := internal.BashCellFromBlocks(blocks)
-
-		// then
-		rendered, err := cell.Render()
-		require.NoError(t, err)
-		assert.Equal(t, code+internal.MakeOutput("hello").Render(), rendered)
-		assert.Equal(t, 5, consumed)
-	})
-}
-
 func TestMakeBashCellFromRaw(t *testing.T) {
 	// given
 	code := "```bash\necho hello\n```\n"
@@ -395,6 +327,22 @@ func TestClassify(t *testing.T) {
 		rendered, err := cells[0].Render()
 		require.NoError(t, err)
 		assert.Equal(t, code+internal.MakeOutput("old output").Render(), rendered)
+	})
+
+	t.Run("unclosed output block returns error", func(t *testing.T) {
+		// given
+		code := "```bash | litdoc\necho hello\n```\n"
+		blocks := []internal.Block{
+			bashLitdocBlock(code),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputBeginMarker)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("hello\n")),
+		}
+
+		// when
+		_, err := internal.Classify(blocks)
+
+		// then
+		require.ErrorContains(t, err, "unclosed output block")
 	})
 
 	t.Run("litdoc block with unsupported language", func(t *testing.T) {

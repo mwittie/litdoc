@@ -69,12 +69,6 @@ func ParseInfoString(b Block) InfoString {
 	return InfoString{Lang: lang, IsLitdoc: isLitdoc}
 }
 
-func BashCellFromBlocks(blocks []Block) (BashCell, int) {
-	fencedCode := string(blocks[0].content)
-	output, consumed := OutputFromBlocks(blocks[1:])
-	return MakeBashCellFromRaw(fencedCode, output), 1 + consumed
-}
-
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
 	i := 0
@@ -83,9 +77,12 @@ func Classify(blocks []Block) ([]Cell, error) {
 		info := ParseInfoString(b)
 		switch {
 		case info.IsLitdoc && info.Lang == "bash":
-			cell, consumed := BashCellFromBlocks(blocks[i:])
-			cells = append(cells, cell)
-			i += consumed
+			output, consumed, err := OutputFromBlocks(blocks[i+1:])
+			if err != nil {
+				return nil, err
+			}
+			cells = append(cells, MakeBashCellFromRaw(string(b.content), output))
+			i += 1 + consumed
 			continue
 		case info.IsLitdoc:
 			return nil, fmt.Errorf("unsupported language: %q", info.Lang)

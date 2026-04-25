@@ -6,6 +6,7 @@ import (
 	"litdoc/internal"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOutputRender(t *testing.T) {
@@ -52,9 +53,10 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
+		require.NoError(t, err)
 		assert.Equal(t, wantOutput("hello"), output.Render())
 		assert.Equal(t, 3, consumed)
 	})
@@ -69,9 +71,10 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
+		require.NoError(t, err)
 		assert.Equal(t, wantOutput("hello"), output.Render())
 		assert.Equal(t, 4, consumed)
 	})
@@ -83,19 +86,35 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
+		require.NoError(t, err)
 		assert.Equal(t, "", output.Render())
 		assert.Equal(t, 0, consumed)
 	})
 
 	t.Run("empty blocks returns zero value and zero consumed", func(t *testing.T) {
 		// when
-		output, consumed := internal.OutputFromBlocks(nil)
+		output, consumed, err := internal.OutputFromBlocks(nil)
 
 		// then
+		require.NoError(t, err)
 		assert.Equal(t, "", output.Render())
 		assert.Equal(t, 0, consumed)
+	})
+
+	t.Run("opening marker without closing marker returns error", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			htmlComment(internal.OutputBeginMarker),
+			text("hello\n"),
+		}
+
+		// when
+		_, _, err := internal.OutputFromBlocks(blocks)
+
+		// then
+		require.ErrorContains(t, err, "unclosed output block")
 	})
 }
