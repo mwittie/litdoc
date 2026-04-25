@@ -6,6 +6,9 @@ import (
 	"testing"
 
 	"litdoc/internal"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 //go:embed testdata/input.md
@@ -32,4 +35,25 @@ func TestProcessFile(t *testing.T) {
 	if got != string(renderOutput) {
 		t.Errorf("output mismatch\ngot:\n%s\nwant:\n%s", got, renderOutput)
 	}
+}
+
+func TestProcessFileNestedListIndent(t *testing.T) {
+	// given
+	input := "- Level 1\n\n  - Level 2\n\n    ```bash | litdoc\n    echo hello\n    ```\n"
+	f, err := os.CreateTemp(t.TempDir(), "*.md")
+	require.NoError(t, err)
+	_, err = f.Write([]byte(input))
+	require.NoError(t, err)
+	f.Close()
+
+	// when
+	got, err := internal.ProcessFile(f.Name())
+
+	// then
+	require.NoError(t, err)
+	want := "- Level 1\n\n  - Level 2\n\n    ```bash | litdoc\n    echo hello\n    ```\n" +
+		"\n    " + internal.OutputBeginMarker +
+		"    output\n" +
+		"    " + internal.OutputEndMarker
+	assert.Equal(t, want, got)
 }

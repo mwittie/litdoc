@@ -13,17 +13,33 @@ const (
 
 type Output struct {
 	content string
+	indent  string
 }
 
 func MakeOutput(content string) Output {
 	return Output{content: content}
 }
 
+func (o Output) WithIndent(indent string) Output {
+	o.indent = indent
+	return o
+}
+
 func (o Output) Render() string {
 	if o.content == "" {
 		return ""
 	}
-	return "\n" + OutputBeginMarker + o.content + "\n" + OutputEndMarker
+	ind := o.indent
+	if ind == "" {
+		return "\n" + OutputBeginMarker + o.content + "\n" + OutputEndMarker
+	}
+	var buf strings.Builder
+	buf.WriteString("\n" + ind + OutputBeginMarker)
+	for _, line := range strings.Split(o.content, "\n") {
+		buf.WriteString(ind + line + "\n")
+	}
+	buf.WriteString(ind + OutputEndMarker)
+	return buf.String()
 }
 
 func isOutputBegin(b Block) bool {

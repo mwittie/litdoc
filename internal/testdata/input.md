@@ -47,3 +47,9 @@ echo "hello, world"
 <!-- BEGIN LITDOC OUTPUT -->
 output
 <!-- END LITDOC OUTPUT -->
+
+- Indented code block
+
+  ```bash | litdoc
+  echo "hello, world"
+  ```

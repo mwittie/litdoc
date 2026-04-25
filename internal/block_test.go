@@ -15,7 +15,7 @@ func TestMakeBlockFromRaw(t *testing.T) {
 	content := []byte("```bash\necho hello\n```\n")
 
 	// when
-	got := internal.MakeBlockFromRaw(kind, content)
+	got := internal.MakeBlockFromRaw(kind, content, "")
 
 	// then
 	assert.Equal(t, kind, got.Kind())

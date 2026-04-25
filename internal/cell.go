@@ -37,7 +37,7 @@ func MakeBashCellFromRaw(fencedCode string, output Output) BashCell {
 }
 
 func (c BashCell) Execute() (Cell, error) {
-	return BashCell{fencedCode: c.fencedCode, output: MakeOutput("output")}, nil // stub
+	return BashCell{fencedCode: c.fencedCode, output: MakeOutput("output").WithIndent(c.output.indent)}, nil // stub
 }
 
 func (c BashCell) Render() (string, error) {
@@ -81,6 +81,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 			if err != nil {
 				return nil, err
 			}
+			output = output.WithIndent(b.Indent())
 			cells = append(cells, MakeBashCellFromRaw(string(b.content), output))
 			i += 1 + consumed
 			continue

@@ -35,10 +35,10 @@ func TestOutputRender(t *testing.T) {
 
 func TestOutputFromBlocks(t *testing.T) {
 	htmlComment := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(content))
+		return internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(content), "")
 	}
 	text := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
+		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content), "")
 	}
 	wantOutput := func(content string) string {
 		return internal.MakeOutput(content).Render()

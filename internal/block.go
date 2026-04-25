@@ -20,15 +20,16 @@ const (
 type Block struct {
 	kind    BlockKind
 	content []byte
+	indent  string
 }
 
-func MakeBlockFromRaw(kind BlockKind, raw []byte) Block {
-	return Block{kind: kind, content: raw}
+func MakeBlockFromRaw(kind BlockKind, raw []byte, indent string) Block {
+	return Block{kind: kind, content: raw, indent: indent}
 }
 
 func (b Block) Kind() BlockKind { return b.kind }
-
 func (b Block) Content() []byte { return b.content }
+func (b Block) Indent() string  { return b.indent }
 
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	tree, err := markdown.ParseCtx(context.Background(), nil, content)
@@ -43,7 +44,7 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	collectBlockNodes(root, content, &pos, &blocks)
 
 	if pos < uint32(len(content)) {
-		blocks = append(blocks, Block{kind: BlockKindText, content: content[pos:]})
+		blocks = append(blocks, MakeBlockFromRaw(BlockKindText, content[pos:], ""))
 	}
 
 	return blocks, nil
@@ -56,7 +57,7 @@ func collectBlockNodes(
 	blocks *[]Block,
 ) {
 	switch node.Type() {
-	case "document", "section":
+	case "document", "section", "list", "list_item":
 		for i := 0; i < int(node.ChildCount()); i++ {
 			collectBlockNodes(node.Child(i), content, pos, blocks)
 		}
@@ -65,18 +66,30 @@ func collectBlockNodes(
 		end := node.EndByte()
 
 		if start > *pos {
-			*blocks = append(
-				*blocks,
-				MakeBlockFromRaw(BlockKindText, content[*pos:start]),
-			)
+			*blocks = append(*blocks, MakeBlockFromRaw(BlockKindText, content[*pos:start], ""))
 		}
 
-		*blocks = append(
-			*blocks,
-			MakeBlockFromRaw(blockKind(node, content), content[start:end]),
-		)
+		kind := blockKind(node, content)
+		indent := ""
+		if kind == BlockKindFencedCode || kind == BlockKindHTMLComment {
+			indent = lineIndentBefore(start, content)
+		}
+		*blocks = append(*blocks, MakeBlockFromRaw(kind, content[start:end], indent))
 		*pos = end
 	}
+}
+
+// lineIndentBefore returns the leading whitespace on the line containing start.
+func lineIndentBefore(start uint32, content []byte) string {
+	lineStart := start
+	for lineStart > 0 && content[lineStart-1] != '\n' {
+		lineStart--
+	}
+	i := lineStart
+	for i < start && (content[i] == ' ' || content[i] == '\t') {
+		i++
+	}
+	return string(content[lineStart:i])
 }
 
 func blockKind(node *sitter.Node, content []byte) BlockKind {
