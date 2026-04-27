@@ -29,19 +29,28 @@ func (t StaticCell) Render() (string, error) {
 
 type BashCell struct {
 	fencedCode string
+	indent     string
 	output     Output
 }
 
 func MakeBashCellFromRaw(fencedCode string, output Output) BashCell {
-	return BashCell{fencedCode: fencedCode, output: output}
+	return BashCell{
+		fencedCode: fencedCode,
+		indent:     lineIndent([]byte(fencedCode)),
+		output:     output,
+	}
 }
 
 func (c BashCell) Execute() (Cell, error) {
-	return BashCell{fencedCode: c.fencedCode, output: MakeOutput("output").WithIndent(c.output.indent)}, nil // stub
+	return BashCell{
+		fencedCode: c.fencedCode,
+		indent:     c.indent,
+		output:     MakeOutput("output"),
+	}, nil // stub
 }
 
 func (c BashCell) Render() (string, error) {
-	return c.fencedCode + c.output.Render(), nil
+	return c.fencedCode + c.output.Render(c.indent), nil
 }
 
 type InfoString struct {
@@ -78,14 +87,23 @@ func Classify(blocks []Block) ([]Cell, error) {
 		info := ParseInfoString(b)
 		switch {
 		case info.IsLitdoc && info.Lang == "bash":
-			output, consumed, err := OutputFromBlocks(blocks[i+1:])
+			indent := blockIndent(b)
+			output, outputIndent, consumed, err := OutputFromBlocks(blocks[i+1:])
 			if err != nil {
 				return nil, err
 			}
-			if consumed == 0 {
-				output = output.WithIndent(blockIndent(b))
+			if consumed > 0 && outputIndent != indent {
+				return nil, fmt.Errorf(
+					"output indentation %q does not match bash cell indentation %q",
+					outputIndent,
+					indent,
+				)
 			}
-			cells = append(cells, MakeBashCellFromRaw(string(b.content), output))
+			cells = append(cells, BashCell{
+				fencedCode: string(b.content),
+				indent:     indent,
+				output:     output,
+			})
 			i += 1 + consumed
 			continue
 		case info.IsLitdoc:
@@ -99,7 +117,11 @@ func Classify(blocks []Block) ([]Cell, error) {
 }
 
 func blockIndent(b Block) string {
-	line := b.content
+	return lineIndent(b.content)
+}
+
+func lineIndent(content []byte) string {
+	line := content
 	if i := bytes.IndexByte(line, '\n'); i >= 0 {
 		line = line[:i]
 	}

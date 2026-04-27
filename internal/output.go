@@ -13,34 +13,28 @@ const (
 
 type Output struct {
 	content string
-	indent  string
 }
 
 func MakeOutput(content string) Output {
 	return Output{content: content}
 }
 
-func (o Output) WithIndent(indent string) Output {
-	o.indent = indent
-	return o
-}
-
-func (o Output) Render() string {
+func (o Output) Render(indent string) string {
 	if o.content == "" {
 		return ""
 	}
 
 	o.content = strings.TrimSuffix(o.content, "\n")
 
-	if o.indent == "" {
+	if indent == "" {
 		return "\n" + OutputBeginMarker + o.content + "\n" + OutputEndMarker
 	}
 	var buf strings.Builder
-	buf.WriteString("\n" + o.indent + OutputBeginMarker)
+	buf.WriteString("\n" + indent + OutputBeginMarker)
 	for _, line := range strings.Split(o.content, "\n") {
-		buf.WriteString(o.indent + line + "\n")
+		buf.WriteString(indent + line + "\n")
 	}
-	buf.WriteString(o.indent + OutputEndMarker)
+	buf.WriteString(indent + OutputEndMarker)
 	return buf.String()
 }
 
@@ -66,7 +60,7 @@ func blockLineIndent(b Block) string {
 	return string(line[:i])
 }
 
-func OutputFromBlocks(blocks []Block) (Output, int, error) {
+func OutputFromBlocks(blocks []Block) (Output, string, int, error) {
 	i := 0
 	// skip empty text blocks
 	for i < len(blocks) &&
@@ -81,7 +75,7 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 		indent = blockLineIndent(blocks[i])
 		i++
 	} else {
-		return Output{}, 0, nil
+		return Output{}, "", 0, nil
 	}
 
 	// accumulate text until an 'end' block and return
@@ -89,25 +83,25 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	for i < len(blocks) {
 		if isOutputEnd(blocks[i]) {
 			if got := blockLineIndent(blocks[i]); got != indent {
-				return Output{}, 0, fmt.Errorf(
+				return Output{}, "", 0, fmt.Errorf(
 					"output end marker indentation: got %q, want %q",
 					got,
 					indent,
 				)
 			}
 			i++
-			return MakeOutput(buf.String()).WithIndent(indent), i, nil
+			return MakeOutput(buf.String()), indent, i, nil
 		}
 		unindented, err := unindentOutputContent(blocks[i].content, indent)
 		if err != nil {
-			return Output{}, 0, err
+			return Output{}, "", 0, err
 		}
 		buf.Write(unindented)
 		i++
 	}
 
 	// report not finding an 'end' block
-	return Output{}, 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
+	return Output{}, "", 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
 }
 
 func unindentOutputContent(content []byte, indent string) ([]byte, error) {

@@ -120,7 +120,7 @@ func TestBashCellExecute(t *testing.T) {
 	require.NoError(t, err)
 	rendered, err := gotCell.Render()
 	require.NoError(t, err)
-	want := fencedCode + internal.MakeOutput("output").Render()
+	want := fencedCode + internal.MakeOutput("output").Render("")
 	assert.Equal(t, want, rendered)
 }
 
@@ -150,7 +150,7 @@ func TestBashCellRender(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		want := fencedCode + internal.MakeOutput("output").Render()
+		want := fencedCode + internal.MakeOutput("output").Render("")
 		assert.Equal(t, want, gotContent)
 	})
 }
@@ -326,7 +326,47 @@ func TestClassify(t *testing.T) {
 		require.True(t, ok, "expected BashCell, got %T", cells[0])
 		rendered, err := cells[0].Render()
 		require.NoError(t, err)
-		assert.Equal(t, code+internal.MakeOutput("old output").Render(), rendered)
+		assert.Equal(t, code+internal.MakeOutput("old output").Render(""), rendered)
+	})
+
+	t.Run("indented output block must match bash cell indent", func(t *testing.T) {
+		// given
+		code := "    ```bash | litdoc\n    echo hello\n    ```\n"
+		blocks := []internal.Block{
+			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte("    "+internal.OutputBeginMarker)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("    old output\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte("    "+internal.OutputEndMarker)),
+		}
+
+		// when
+		cells, err := internal.Classify(blocks)
+
+		// then
+		require.NoError(t, err)
+		require.Len(t, cells, 1)
+		rendered, err := cells[0].Render()
+		require.NoError(t, err)
+		assert.Equal(t, code+internal.MakeOutput("old output").Render("    "), rendered)
+	})
+
+	t.Run("output block with mismatched indent returns error", func(t *testing.T) {
+		// given
+		code := "    ```bash | litdoc\n    echo hello\n    ```\n"
+		blocks := []internal.Block{
+			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte("  "+internal.OutputBeginMarker)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("  old output\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte("  "+internal.OutputEndMarker)),
+		}
+
+		// when
+		_, err := internal.Classify(blocks)
+
+		// then
+		require.ErrorContains(t, err, "does not match bash cell indentation")
 	})
 
 	t.Run("unclosed output block returns error", func(t *testing.T) {
