@@ -32,28 +32,60 @@ func TestOutput_WithIndent(t *testing.T) {
 	assert.Contains(t, got.Render(), indent+content)
 }
 
-func TestOutputRender(t *testing.T) {
-	t.Run("empty output renders empty string", func(t *testing.T) {
-		// given
-		output := internal.Output{}
+func TestOutput_Render(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		indent  string
+		want    string
+	}{
+		{
+			"empty",
+			"",
+			"",
+			"",
+		},
+		{
+			"wrap content in markers",
+			"hello\n",
+			"",
+			"\n" + internal.OutputBeginMarker + "hello\n" + internal.OutputEndMarker,
+		},
+		{
+			"ensure content rendered with trailing newline",
+			"hello",
+			"",
+			"\n" + internal.OutputBeginMarker + "hello\n" + internal.OutputEndMarker,
+		},
+		{
+			"multiline content",
+			"hello\nworld",
+			"",
+			"\n" + internal.OutputBeginMarker + "hello\nworld\n" + internal.OutputEndMarker,
+		},
+		{
+			"indent content",
+			"hello\n",
+			"  ",
+			"\n" +
+				"  " + internal.OutputBeginMarker +
+				"  " + "hello\n" +
+				"  " + internal.OutputEndMarker,
+		},
+	}
 
-		// when
-		got := output.Render()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// given
+			output := internal.MakeOutput(tt.content).WithIndent(tt.indent)
 
-		// then
-		assert.Equal(t, "", got)
-	})
+			// when
+			got := output.Render()
 
-	t.Run("non-empty output renders wrapped content", func(t *testing.T) {
-		// given
-		output := internal.MakeOutput("hello")
-
-		// when
-		got := output.Render()
-
-		// then
-		assert.Equal(t, "\n"+internal.OutputBeginMarker+"hello\n"+internal.OutputEndMarker, got)
-	})
+			// then
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestOutputFromBlocks(t *testing.T) {
