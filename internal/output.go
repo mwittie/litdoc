@@ -46,15 +46,26 @@ func (o Output) Render() string {
 
 func isOutputBegin(b Block) bool {
 	return b.kind == BlockKindHTMLComment &&
-		bytes.HasPrefix(b.content, []byte(OutputBeginMarker))
+		bytes.HasPrefix(bytes.TrimLeft(b.content, " \t"), []byte(OutputBeginMarker))
 }
 
 func isOutputEnd(b Block) bool {
 	return b.kind == BlockKindHTMLComment &&
-		bytes.HasPrefix(b.content, []byte(OutputEndMarker))
+		bytes.HasPrefix(bytes.TrimLeft(b.content, " \t"), []byte(OutputEndMarker))
 }
 
-// todo: make sure that it handles indent
+func blockLineIndent(b Block) string {
+	line := b.content
+	if i := bytes.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i]
+	}
+	i := 0
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	return string(line[:i])
+}
+
 func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	i := 0
 	// skip empty text blocks
@@ -65,7 +76,9 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	}
 
 	// advance past a 'begin' block, or exit
+	indent := ""
 	if i < len(blocks) && isOutputBegin(blocks[i]) {
+		indent = blockLineIndent(blocks[i])
 		i++
 	} else {
 		return Output{}, 0, nil
@@ -75,13 +88,48 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	var buf strings.Builder
 	for i < len(blocks) {
 		if isOutputEnd(blocks[i]) {
+			if got := blockLineIndent(blocks[i]); got != indent {
+				return Output{}, 0, fmt.Errorf(
+					"output end marker indentation: got %q, want %q",
+					got,
+					indent,
+				)
+			}
 			i++
-			return MakeOutput(buf.String()), i, nil
+			return MakeOutput(buf.String()).WithIndent(indent), i, nil
 		}
-		buf.Write(blocks[i].content)
+		unindented, err := unindentOutputContent(blocks[i].content, indent)
+		if err != nil {
+			return Output{}, 0, err
+		}
+		buf.Write(unindented)
 		i++
 	}
 
 	// report not finding an 'end' block
 	return Output{}, 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
+}
+
+func unindentOutputContent(content []byte, indent string) ([]byte, error) {
+	if indent == "" || len(content) == 0 {
+		return content, nil
+	}
+
+	lines := bytes.SplitAfter(content, []byte("\n"))
+	var buf bytes.Buffer
+	for _, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		trimmedLine := bytes.TrimSuffix(line, []byte("\n"))
+		if len(trimmedLine) == 0 {
+			buf.Write(line)
+			continue
+		}
+		if !bytes.HasPrefix(line, []byte(indent)) {
+			return nil, fmt.Errorf("output content indentation: got %q, want prefix %q", string(line), indent)
+		}
+		buf.Write(line[len(indent):])
+	}
+	return buf.Bytes(), nil
 }

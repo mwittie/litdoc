@@ -58,7 +58,6 @@ func TestParseInfoString(t *testing.T) {
 			block: internal.MakeBlockFromRaw(
 				internal.BlockKindText,
 				[]byte("hello"),
-				"",
 			),
 			want: internal.InfoString{},
 		},
@@ -67,7 +66,6 @@ func TestParseInfoString(t *testing.T) {
 			block: internal.MakeBlockFromRaw(
 				internal.BlockKindFencedCode,
 				[]byte("```bash\necho hello\n```\n"),
-				"",
 			),
 			want: internal.InfoString{Lang: "bash"},
 		},
@@ -76,7 +74,6 @@ func TestParseInfoString(t *testing.T) {
 			block: internal.MakeBlockFromRaw(
 				internal.BlockKindFencedCode,
 				[]byte("```bash | litdoc\necho hello\n```\n"),
-				"",
 			),
 			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
 		},
@@ -85,7 +82,6 @@ func TestParseInfoString(t *testing.T) {
 			block: internal.MakeBlockFromRaw(
 				internal.BlockKindHTMLComment,
 				[]byte("<!-- bash | litdoc\necho hello\n-->\n"),
-				"",
 			),
 			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
 		},
@@ -225,10 +221,10 @@ func TestCompose(t *testing.T) {
 
 func TestClassify(t *testing.T) {
 	textBlock := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content), "")
+		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
 	}
 	bashLitdocBlock := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(content), "")
+		return internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(content))
 	}
 
 	t.Run("single text block becomes StaticCell", func(t *testing.T) {
@@ -295,7 +291,7 @@ func TestClassify(t *testing.T) {
 		// given
 		code := "```bash\necho hello\n```\n"
 		blocks := []internal.Block{
-			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code), ""),
+			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code)),
 		}
 
 		// when
@@ -313,11 +309,11 @@ func TestClassify(t *testing.T) {
 		// given - mirrors what tree-sitter produces: three separate blocks for the output section
 		code := "```bash | litdoc\necho hello\n```\n"
 		blocks := []internal.Block{
-			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code), ""),
-			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("\n"), ""),
-			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputBeginMarker+"\n"), ""),
-			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("old output\n"), ""),
-			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputEndMarker+"\n"), ""),
+			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputBeginMarker+"\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("old output\n")),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputEndMarker+"\n")),
 		}
 
 		// when
@@ -338,8 +334,8 @@ func TestClassify(t *testing.T) {
 		code := "```bash | litdoc\necho hello\n```\n"
 		blocks := []internal.Block{
 			bashLitdocBlock(code),
-			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputBeginMarker), ""),
-			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("hello\n"), ""),
+			internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(internal.OutputBeginMarker)),
+			internal.MakeBlockFromRaw(internal.BlockKindText, []byte("hello\n")),
 		}
 
 		// when

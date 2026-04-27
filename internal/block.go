@@ -20,16 +20,14 @@ const (
 type Block struct {
 	kind    BlockKind
 	content []byte
-	indent  string
 }
 
-func MakeBlockFromRaw(kind BlockKind, raw []byte, indent string) Block {
-	return Block{kind: kind, content: raw, indent: indent}
+func MakeBlockFromRaw(kind BlockKind, raw []byte) Block {
+	return Block{kind: kind, content: raw}
 }
 
 func (b Block) Kind() BlockKind { return b.kind }
 func (b Block) Content() []byte { return b.content }
-func (b Block) Indent() string  { return b.indent }
 
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	tree, err := markdown.ParseCtx(context.Background(), nil, content)
@@ -44,7 +42,7 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	collectBlockNodes(root, content, &pos, &blocks)
 
 	if pos < uint32(len(content)) {
-		blocks = append(blocks, MakeBlockFromRaw(BlockKindText, content[pos:], ""))
+		blocks = append(blocks, MakeBlockFromRaw(BlockKindText, content[pos:]))
 	}
 
 	return blocks, nil
@@ -64,23 +62,39 @@ func collectBlockNodes(
 	default:
 		start := node.StartByte()
 		end := node.EndByte()
-
-		if start > *pos {
-			*blocks = append(*blocks, MakeBlockFromRaw(BlockKindText, content[*pos:start], ""))
-		}
-
 		kind := blockKind(node, content)
-		indent := ""
+		blockStart := start
+		blockEnd := lineTrailingWhitespaceStart(end, content)
 		if kind == BlockKindFencedCode || kind == BlockKindHTMLComment {
-			indent = lineIndentBefore(start, content)
+			blockStart = lineWhitespaceStart(start, content)
+			if blockStart < *pos && len(*blocks) > 0 {
+				last := len(*blocks) - 1
+				if (*blocks)[last].kind == BlockKindText &&
+					bytes.Equal((*blocks)[last].content, content[blockStart:*pos]) {
+					*blocks = (*blocks)[:last]
+					*pos = blockStart
+				}
+			}
+			if blockStart < *pos {
+				blockStart = start
+			}
 		}
-		*blocks = append(*blocks, MakeBlockFromRaw(kind, content[start:end], indent))
-		*pos = end
+
+		if blockStart > *pos {
+			if kind == BlockKindText && !isListMarker(content[blockStart:blockEnd]) {
+				*blocks = append(*blocks, MakeBlockFromRaw(BlockKindText, content[*pos:blockEnd]))
+				*pos = blockEnd
+				return
+			}
+			*blocks = append(*blocks, MakeBlockFromRaw(BlockKindText, content[*pos:blockStart]))
+		}
+
+		*blocks = append(*blocks, MakeBlockFromRaw(kind, content[blockStart:blockEnd]))
+		*pos = blockEnd
 	}
 }
 
-// lineIndentBefore returns the leading whitespace on the line containing start.
-func lineIndentBefore(start uint32, content []byte) string {
+func lineWhitespaceStart(start uint32, content []byte) uint32 {
 	lineStart := start
 	for lineStart > 0 && content[lineStart-1] != '\n' {
 		lineStart--
@@ -89,7 +103,42 @@ func lineIndentBefore(start uint32, content []byte) string {
 	for i < start && (content[i] == ' ' || content[i] == '\t') {
 		i++
 	}
-	return string(content[lineStart:i])
+	if i == start {
+		return lineStart
+	}
+	return start
+}
+
+func lineTrailingWhitespaceStart(end uint32, content []byte) uint32 {
+	i := end
+	for i > 0 && (content[i-1] == ' ' || content[i-1] == '\t') {
+		i--
+	}
+	if i > 0 && content[i-1] == '\n' {
+		return i
+	}
+	return end
+}
+
+func isListMarker(content []byte) bool {
+	if bytes.Equal(content, []byte("- ")) ||
+		bytes.Equal(content, []byte("+ ")) ||
+		bytes.Equal(content, []byte("* ")) {
+		return true
+	}
+	if len(content) < 3 || content[len(content)-1] != ' ' {
+		return false
+	}
+	for i, b := range content[:len(content)-2] {
+		if i == 0 && (b < '0' || b > '9') {
+			return false
+		}
+		if i > 0 && (b < '0' || b > '9') {
+			return false
+		}
+	}
+	marker := content[len(content)-2]
+	return marker == '.' || marker == ')'
 }
 
 func blockKind(node *sitter.Node, content []byte) BlockKind {

@@ -90,10 +90,10 @@ func TestOutput_Render(t *testing.T) {
 
 func TestOutputFromBlocks(t *testing.T) {
 	htmlComment := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(content), "")
+		return internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(content))
 	}
 	text := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content), "")
+		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
 	}
 	wantOutput := func(content string) string {
 		return internal.MakeOutput(content).Render()
@@ -132,6 +132,53 @@ func TestOutputFromBlocks(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, wantOutput("hello"), output.Render())
 		assert.Equal(t, 4, consumed)
+	})
+
+	t.Run("indented output block is scanned in", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			htmlComment("    " + internal.OutputBeginMarker),
+			text("    hello\n    world\n"),
+			htmlComment("    " + internal.OutputEndMarker),
+		}
+
+		// when
+		output, consumed, err := internal.OutputFromBlocks(blocks)
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, internal.MakeOutput("hello\nworld").WithIndent("    ").Render(), output.Render())
+		assert.Equal(t, 3, consumed)
+	})
+
+	t.Run("indented output content must match marker indent", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			htmlComment("    " + internal.OutputBeginMarker),
+			text("  hello\n"),
+			htmlComment("    " + internal.OutputEndMarker),
+		}
+
+		// when
+		_, _, err := internal.OutputFromBlocks(blocks)
+
+		// then
+		require.ErrorContains(t, err, "output content indentation")
+	})
+
+	t.Run("indented output end marker must match begin marker indent", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			htmlComment("    " + internal.OutputBeginMarker),
+			text("    hello\n"),
+			htmlComment("  " + internal.OutputEndMarker),
+		}
+
+		// when
+		_, _, err := internal.OutputFromBlocks(blocks)
+
+		// then
+		require.ErrorContains(t, err, "output end marker indentation")
 	})
 
 	t.Run("no output block returns zero value and zero consumed", func(t *testing.T) {

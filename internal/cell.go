@@ -54,6 +54,7 @@ func ParseInfoString(b Block) InfoString {
 	if i := bytes.IndexByte(b.content, '\n'); i >= 0 {
 		firstLine = b.content[:i]
 	}
+	firstLine = bytes.TrimLeft(firstLine, " \t")
 	var raw []byte
 	switch b.kind {
 	case BlockKindFencedCode:
@@ -81,7 +82,9 @@ func Classify(blocks []Block) ([]Cell, error) {
 			if err != nil {
 				return nil, err
 			}
-			output = output.WithIndent(b.Indent())
+			if consumed == 0 {
+				output = output.WithIndent(blockIndent(b))
+			}
 			cells = append(cells, MakeBashCellFromRaw(string(b.content), output))
 			i += 1 + consumed
 			continue
@@ -93,6 +96,18 @@ func Classify(blocks []Block) ([]Cell, error) {
 		i++
 	}
 	return cells, nil
+}
+
+func blockIndent(b Block) string {
+	line := b.content
+	if i := bytes.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i]
+	}
+	i := 0
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	return string(line[:i])
 }
 
 func Execute(cells []Cell) ([]Cell, error) {

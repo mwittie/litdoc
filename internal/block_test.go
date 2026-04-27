@@ -15,7 +15,7 @@ func TestMakeBlockFromRaw(t *testing.T) {
 	content := []byte("```bash\necho hello\n```\n")
 
 	// when
-	got := internal.MakeBlockFromRaw(kind, content, "")
+	got := internal.MakeBlockFromRaw(kind, content)
 
 	// then
 	assert.Equal(t, kind, got.Kind())
@@ -59,6 +59,26 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				content string
 			}{
 				{internal.BlockKindFencedCode, "```bash\necho \"hello\"\n```\n"},
+			},
+		},
+		{
+			name:  "fenced code block in nested list keeps indent in content",
+			input: "- Level 1\n\n  - Level 2\n\n    ```bash | litdoc\n    echo \"hello\"\n    ```\n",
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "- "},
+				{internal.BlockKindText, "Level 1\n"},
+				{internal.BlockKindText, "\n"},
+				{internal.BlockKindText, "  "},
+				{internal.BlockKindText, "- "},
+				{internal.BlockKindText, "Level 2\n"},
+				{internal.BlockKindText, "\n"},
+				{
+					internal.BlockKindFencedCode,
+					"    ```bash | litdoc\n    echo \"hello\"\n    ```\n",
+				},
 			},
 		},
 		{
@@ -112,6 +132,27 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				content string
 			}{
 				{internal.BlockKindHTMLComment, "<!--\ncomment\n-->\n"},
+			},
+		},
+		{
+			name:  "html comment block in nested list keeps indent in content",
+			input: "- Level 1\n\n  - Level 2\n\n    <!--\n    comment\n    -->\n    text\n",
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "- "},
+				{internal.BlockKindText, "Level 1\n"},
+				{internal.BlockKindText, "\n"},
+				{internal.BlockKindText, "  "},
+				{internal.BlockKindText, "- "},
+				{internal.BlockKindText, "Level 2\n"},
+				{internal.BlockKindText, "\n"},
+				{
+					internal.BlockKindHTMLComment,
+					"    <!--\n    comment\n    -->\n",
+				},
+				{internal.BlockKindText, "    text\n"},
 			},
 		},
 		{
