@@ -9,6 +9,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMakeOutput(t *testing.T) {
+	// given
+	content := "hello"
+
+	// when
+	got := internal.MakeOutput(content)
+
+	// then
+	assert.Contains(t, got.Render(), content)
+}
+
+func TestOutput_WithIndent(t *testing.T) {
+	// given
+	content := "hello"
+	indent := "  "
+
+	// when
+	got := internal.MakeOutput(content).WithIndent(indent)
+
+	// then
+	assert.Contains(t, got.Render(), indent+content)
+}
+
 func TestOutputRender(t *testing.T) {
 	t.Run("empty output renders empty string", func(t *testing.T) {
 		// given
