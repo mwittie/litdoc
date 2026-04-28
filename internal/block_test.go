@@ -1,6 +1,7 @@
 package internal_test
 
 import (
+	"strings"
 	"testing"
 
 	"litdoc/internal"
@@ -20,6 +21,10 @@ func TestMakeBlockFromRaw(t *testing.T) {
 	// then
 	assert.Equal(t, kind, got.Kind())
 	assert.Equal(t, content, got.Content())
+}
+
+func joinLines(lines ...string) string {
+	return strings.Join(lines, "\n")
 }
 
 func TestMakeBlocksFromMarkdown(t *testing.T) {
@@ -42,18 +47,69 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			},
 		},
 		{
-			name:  "text",
-			input: "text\nand more text",
+			name: "nested heading and text",
+			input: joinLines(
+				"# Level 1",
+				"",
+				"some text",
+				"",
+				"## Level 2",
+				"",
+				"more text",
+				"",
+			),
 			want: []struct {
 				kind    internal.BlockKind
 				content string
 			}{
-				{internal.BlockKindText, "text\nand more text"},
+				{internal.BlockKindText, "# Level 1\n"},
+				{internal.BlockKindText, "\n"},
+				{internal.BlockKindText, "some text\n"},
+				{internal.BlockKindText, "\n"},
+				{internal.BlockKindText, "## Level 2\n"},
+				{internal.BlockKindText, "\n"},
+				{internal.BlockKindText, "more text\n"},
 			},
 		},
 		{
-			name:  "fenced code block",
-			input: "```bash\necho \"hello\"\n```\n",
+			name: "paragraphs grouped together",
+			input: joinLines(
+				"text",
+				"and more text",
+				"",
+				"last line",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "text\nand more text\n"},
+				{internal.BlockKindText, "\n"},
+				{internal.BlockKindText, "last line"},
+			},
+		},
+		{
+			name: "line break grouped with paragraph",
+			input: joinLines(
+				"text",
+				"and more text  ",
+				"after line break",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "text\nand more text  \nafter line break"},
+			},
+		},
+		{
+			name: "fenced code block as single block",
+			input: joinLines(
+				"```bash",
+				"echo \"hello\"",
+				"```",
+				"",
+			),
 			want: []struct {
 				kind    internal.BlockKind
 				content string
@@ -62,56 +118,119 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			},
 		},
 		{
-			name:  "tilde fenced code block",
-			input: "~~~bash\necho \"hello\"\n~~~\n",
+			name: "fenced code block with no trailing newline",
+			input: joinLines(
+				"```bash",
+				"echo \"hello\"",
+				"```",
+			),
 			want: []struct {
 				kind    internal.BlockKind
 				content string
 			}{
-				{internal.BlockKindFencedCode, "~~~bash\necho \"hello\"\n~~~\n"},
+				{internal.BlockKindFencedCode, "```bash\necho \"hello\"\n```"},
 			},
 		},
 		{
-			name:  "longer backtick fence",
-			input: "````bash\necho \"hello\"\n````\n",
+			name: "tilde fenced code block as single block",
+			input: joinLines(
+				"~~~bash",
+				"echo \"hello\"",
+				"~~~",
+			),
 			want: []struct {
 				kind    internal.BlockKind
 				content string
 			}{
-				{internal.BlockKindFencedCode, "````bash\necho \"hello\"\n````\n"},
+				{internal.BlockKindFencedCode, "~~~bash\necho \"hello\"\n~~~"},
 			},
 		},
 		{
-			name:  "quad fenced verbatim block containing litdoc source",
-			input: "````md\n```bash | litdoc\necho \"hello\"\n```\n````",
+			name: "longer backtick fence as single block",
+			input: joinLines(
+				"````md",
+				"```bash",
+				"echo \"hello\"",
+				"```",
+				"````",
+			),
 			want: []struct {
 				kind    internal.BlockKind
 				content string
 			}{
 				{
 					internal.BlockKindFencedCode,
-					"````md\n```bash | litdoc\necho \"hello\"\n```\n````",
+					"````md\n```bash\necho \"hello\"\n```\n````",
 				},
 			},
 		},
 		{
-			name:  "indented code block",
-			input: "    echo \"hello\"\n",
+			name: "indented code block",
+			input: joinLines(
+				"    echo \"hello, \"",
+				"    echo \"world\"",
+			),
 			want: []struct {
 				kind    internal.BlockKind
 				content string
 			}{
-				{internal.BlockKindText, "    echo \"hello\"\n"},
+				{
+					internal.BlockKindText,
+					"    echo \"hello, \"\n    echo \"world\"",
+				},
 			},
 		},
 		{
-			name:  "html comment block",
-			input: "<!--\ncomment\n-->\n",
+			name:  "inline code block",
+			input: "text `echo \"hello, \" text`",
 			want: []struct {
 				kind    internal.BlockKind
 				content string
 			}{
+				{internal.BlockKindText, "text `echo \"hello, \" text`"},
+			},
+		},
+		{
+			name:  "html comment inline comment",
+			input: "text <!-- comment --> text",
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "text "},
+				{internal.BlockKindHTMLComment, "<!-- comment -->"},
+				{internal.BlockKindText, " text"},
+			},
+		},
+		{
+			name:  "multiple inline html comments",
+			input: "text <!-- comment --><!--\ncomment --> text",
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "text "},
+				{internal.BlockKindHTMLComment, "<!-- comment -->"},
+				{internal.BlockKindHTMLComment, "<!--\ncomment -->"},
+				{internal.BlockKindText, " text"},
+			},
+		},
+		{
+			name: "html comment block comment",
+			input: joinLines(
+				"text",
+				"<!--",
+				"comment",
+				"-->",
+				"text",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				content string
+			}{
+				{internal.BlockKindText, "text\n"},
 				{internal.BlockKindHTMLComment, "<!--\ncomment\n-->\n"},
+				{internal.BlockKindText, "text"},
 			},
 		},
 		{
@@ -147,7 +266,14 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 
 			// then
 			require.NoError(t, err)
-			require.Len(t, blocks, len(tt.want))
+			require.Len(
+				t,
+				blocks,
+				len(tt.want),
+				"expected %d blocks, got %d",
+				len(tt.want),
+				len(blocks),
+			)
 			for i, w := range tt.want {
 				assert.Equal(
 					t,
