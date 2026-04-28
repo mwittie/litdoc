@@ -33,6 +33,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 		input string
 		want  []struct {
 			kind    internal.BlockKind
+			indent  string
 			content string
 		}
 	}{
@@ -41,9 +42,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			input: "# Hello\n",
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "# Hello\n"},
+				{internal.BlockKindText, "", "# Hello\n"},
 			},
 		},
 		{
@@ -60,15 +62,16 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "# Level 1\n"},
-				{internal.BlockKindText, "\n"},
-				{internal.BlockKindText, "some text\n"},
-				{internal.BlockKindText, "\n"},
-				{internal.BlockKindText, "## Level 2\n"},
-				{internal.BlockKindText, "\n"},
-				{internal.BlockKindText, "more text\n"},
+				{internal.BlockKindText, "", "# Level 1\n"},
+				{internal.BlockKindText, "", "\n"},
+				{internal.BlockKindText, "", "some text\n"},
+				{internal.BlockKindText, "", "\n"},
+				{internal.BlockKindText, "", "## Level 2\n"},
+				{internal.BlockKindText, "", "\n"},
+				{internal.BlockKindText, "", "more text\n"},
 			},
 		},
 		{
@@ -81,11 +84,12 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "text\nand more text\n"},
-				{internal.BlockKindText, "\n"},
-				{internal.BlockKindText, "last line"},
+				{internal.BlockKindText, "", "text\nand more text\n"},
+				{internal.BlockKindText, "", "\n"},
+				{internal.BlockKindText, "", "last line"},
 			},
 		},
 		{
@@ -97,9 +101,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "text\nand more text  \nafter line break"},
+				{internal.BlockKindText, "", "text\nand more text  \nafter line break"},
 			},
 		},
 		{
@@ -112,9 +117,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindFencedCode, "```bash\necho \"hello\"\n```\n"},
+				{internal.BlockKindFencedCode, "", "```bash\necho \"hello\"\n```\n"},
 			},
 		},
 		{
@@ -126,9 +132,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindFencedCode, "```bash\necho \"hello\"\n```"},
+				{internal.BlockKindFencedCode, "", "```bash\necho \"hello\"\n```"},
 			},
 		},
 		{
@@ -140,9 +147,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindFencedCode, "~~~bash\necho \"hello\"\n~~~"},
+				{internal.BlockKindFencedCode, "", "~~~bash\necho \"hello\"\n~~~"},
 			},
 		},
 		{
@@ -156,10 +164,12 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
 				{
 					internal.BlockKindFencedCode,
+					"",
 					"````md\n```bash\necho \"hello\"\n```\n````",
 				},
 			},
@@ -172,10 +182,12 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
 				{
 					internal.BlockKindText,
+					"",
 					"    echo \"hello, \"\n    echo \"world\"",
 				},
 			},
@@ -185,9 +197,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			input: "text `echo \"hello, \" text`",
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "text `echo \"hello, \" text`"},
+				{internal.BlockKindText, "", "text `echo \"hello, \" text`"},
 			},
 		},
 		{
@@ -195,11 +208,12 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			input: "text <!-- comment --> text",
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "text "},
-				{internal.BlockKindHTMLComment, "<!-- comment -->"},
-				{internal.BlockKindText, " text"},
+				{internal.BlockKindText, "", "text "},
+				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
+				{internal.BlockKindText, "", " text"},
 			},
 		},
 		{
@@ -207,12 +221,13 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			input: "text <!-- comment --><!--\ncomment --> text",
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "text "},
-				{internal.BlockKindHTMLComment, "<!-- comment -->"},
-				{internal.BlockKindHTMLComment, "<!--\ncomment -->"},
-				{internal.BlockKindText, " text"},
+				{internal.BlockKindText, "", "text "},
+				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
+				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
+				{internal.BlockKindText, "", " text"},
 			},
 		},
 		{
@@ -226,11 +241,12 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "text\n"},
-				{internal.BlockKindHTMLComment, "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "text"},
+				{internal.BlockKindText, "", "text\n"},
+				{internal.BlockKindHTMLComment, "", "<!--\ncomment\n-->\n"},
+				{internal.BlockKindText, "", "text"},
 			},
 		},
 		{
@@ -238,23 +254,47 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			input: "<div>\nhello\n</div>\n",
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "<div>\nhello\n</div>\n"},
+				{internal.BlockKindText, "", "<div>\nhello\n</div>\n"},
 			},
 		},
 		{
-			name:  "mixed content",
-			input: "# Title\n\n```go\nfmt.Println()\n```\n\n<!--\nnote\n-->\n",
+			name: "multiline blockquote",
+			input: joinLines(
+				"> hello, ",
+				"> world",
+				"> ",
+				"> again",
+			),
 			want: []struct {
 				kind    internal.BlockKind
+				indent  string
 				content string
 			}{
-				{internal.BlockKindText, "# Title\n"},
-				{internal.BlockKindText, "\n"},
-				{internal.BlockKindFencedCode, "```go\nfmt.Println()\n```\n"},
-				{internal.BlockKindText, "\n"},
-				{internal.BlockKindHTMLComment, "<!--\nnote\n-->\n"},
+				{internal.BlockKindText, "> ", "hello, \nworld\n"},
+				{internal.BlockKindText, "> ", "\n"},
+				{internal.BlockKindText, "> ", "again"},
+			},
+		},
+		{
+			name: "blockquote with fenced code block",
+			input: joinLines(
+				"> text",
+				"> ```bash",
+				"> echo \"hello\"",
+				"> ```",
+				"> text",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "> ", "text\n"},
+				{internal.BlockKindFencedCode, "> ", "```bash\necho \"hello\"\n```\n"},
+				{internal.BlockKindText, "> ", "text"},
 			},
 		},
 	}
@@ -280,6 +320,13 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 					w.kind,
 					blocks[i].Kind(),
 					"block[%d] kind",
+					i,
+				)
+				assert.Equal(
+					t,
+					w.indent,
+					string(blocks[i].Indent()),
+					"block[%d] indent",
 					i,
 				)
 				assert.Equal(

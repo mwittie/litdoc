@@ -20,6 +20,7 @@ const (
 
 type Block struct {
 	kind    BlockKind
+	indent  []byte
 	content []byte
 }
 
@@ -27,7 +28,13 @@ func MakeBlockFromRaw(kind BlockKind, raw []byte) Block {
 	return Block{kind: kind, content: raw}
 }
 
+func makeBlock(kind BlockKind, content, indent []byte) Block {
+	return Block{kind: kind, indent: indent, content: content}
+}
+
 func (b Block) Kind() BlockKind { return b.kind }
+
+func (b Block) Indent() []byte { return b.indent }
 
 func (b Block) Content() []byte { return b.content }
 
@@ -47,10 +54,10 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	var blocks []Block
 	pos := uint32(0)
 
-	collectBlockNodes(root, content, &pos, &blocks)
+	collectBlockNodes(root, content, nil, &pos, &blocks)
 
 	if pos < uint32(len(content)) {
-		blocks = append(blocks, Block{kind: BlockKindText, content: content[pos:]})
+		blocks = append(blocks, makeBlock(BlockKindText, content[pos:], nil))
 	}
 
 	return splitInlineHTMLComments(blocks), nil
@@ -72,13 +79,13 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 		pos := 0
 		for _, loc := range locs {
 			if loc[0] > pos {
-				result = append(result, MakeBlockFromRaw(BlockKindText, content[pos:loc[0]]))
+				result = append(result, makeBlock(BlockKindText, content[pos:loc[0]], b.indent))
 			}
-			result = append(result, MakeBlockFromRaw(BlockKindHTMLComment, content[loc[0]:loc[1]]))
+			result = append(result, makeBlock(BlockKindHTMLComment, content[loc[0]:loc[1]], b.indent))
 			pos = loc[1]
 		}
 		if pos < len(content) {
-			result = append(result, MakeBlockFromRaw(BlockKindText, content[pos:]))
+			result = append(result, makeBlock(BlockKindText, content[pos:], b.indent))
 		}
 	}
 	return result
@@ -87,25 +94,59 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 func collectBlockNodes(
 	node *sitter.Node,
 	content []byte,
+	indent []byte,
 	pos *uint32,
 	blocks *[]Block,
 ) {
 	switch node.Type() {
 	case "document", "section":
 		for i := 0; i < int(node.ChildCount()); i++ {
-			collectBlockNodes(node.Child(i), content, pos, blocks)
+			collectBlockNodes(node.Child(i), content, indent, pos, blocks)
+		}
+	case "block_quote":
+		childIndent := append(append([]byte(nil), indent...), "> "...)
+		for i := 0; i < int(node.ChildCount()); i++ {
+			child := node.Child(i)
+			if child.Type() == "block_quote_marker" {
+				if child.StartByte() > *pos {
+					gap := stripIndent(content[*pos:child.StartByte()], childIndent)
+					if len(gap) > 0 {
+						*blocks = append(*blocks, makeBlock(BlockKindText, gap, childIndent))
+					}
+				}
+				*pos = child.EndByte()
+				continue
+			}
+			collectBlockNodes(child, content, childIndent, pos, blocks)
 		}
 	default:
 		start := node.StartByte()
 		end := node.EndByte()
 
 		if start > *pos {
-			*blocks = append(*blocks, MakeBlockFromRaw(BlockKindText, content[*pos:start]))
+			gap := stripIndent(content[*pos:start], indent)
+			if len(gap) > 0 {
+				*blocks = append(*blocks, makeBlock(BlockKindText, gap, indent))
+			}
 		}
 
-		*blocks = append(*blocks, MakeBlockFromRaw(blockKind(node, content), content[start:end]))
+		raw := stripIndent(content[start:end], indent)
+		if len(raw) > 0 {
+			*blocks = append(*blocks, makeBlock(blockKind(node, content), raw, indent))
+		}
 		*pos = end
 	}
+}
+
+func stripIndent(content, indent []byte) []byte {
+	if len(indent) == 0 {
+		return content
+	}
+	lines := bytes.Split(content, []byte("\n"))
+	for i, line := range lines {
+		lines[i] = bytes.TrimPrefix(line, indent)
+	}
+	return bytes.Join(lines, []byte("\n"))
 }
 
 func blockKind(node *sitter.Node, content []byte) BlockKind {
