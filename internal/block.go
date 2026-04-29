@@ -15,9 +15,9 @@ import (
 type BlockKind string
 
 const (
-	BlockKindText        BlockKind = "Text"
-	BlockKindFencedCode  BlockKind = "fencedCode"
-	BlockKindHTMLComment BlockKind = "HTMLComment"
+	BlockKindText        BlockKind = "text"
+	BlockKindFencedCode  BlockKind = "fenced_code"
+	BlockKindHTMLComment BlockKind = "html_comment"
 )
 
 type Block struct {
