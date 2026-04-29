@@ -260,42 +260,6 @@ func TestCompose(t *testing.T) {
 	})
 }
 
-func TestComposePreservesInlineHTMLCommentContinuations(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{
-			name: "list",
-			input: joinLines(
-				"- text <!-- comment --><!--",
-				"  comment --> text",
-			),
-		},
-		{
-			name: "blockquote list",
-			input: joinLines(
-				"> - text <!-- comment --><!--",
-				">   comment --> text",
-			),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			blocks, err := internal.MakeBlocksFromMarkdown([]byte(tt.input))
-			require.NoError(t, err)
-			cells, err := internal.Classify(blocks)
-			require.NoError(t, err)
-
-			got, err := internal.Compose(cells)
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.input, got)
-		})
-	}
-}
-
 func TestClassify(t *testing.T) {
 	textBlock := func(content string) internal.Block {
 		return internal.MakeBlock(internal.BlockKindText, content, "", false)
@@ -372,6 +336,42 @@ func TestClassify(t *testing.T) {
 		rendered2, err := cells[2].Render()
 		require.NoError(t, err)
 		assert.Equal(t, "after", rendered2)
+	})
+
+	t.Run("preserves inline HTML comment continuations when composing static cells", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			input string
+		}{
+			{
+				name: "list",
+				input: joinLines(
+					"- text <!-- comment --><!--",
+					"  comment --> text",
+				),
+			},
+			{
+				name: "blockquote list",
+				input: joinLines(
+					"> - text <!-- comment --><!--",
+					">   comment --> text",
+				),
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				blocks, err := internal.MakeBlocksFromMarkdown([]byte(tt.input))
+				require.NoError(t, err)
+				cells, err := internal.Classify(blocks)
+				require.NoError(t, err)
+
+				got, err := internal.Compose(cells)
+
+				require.NoError(t, err)
+				assert.Equal(t, tt.input, got)
+			})
+		}
 	})
 
 	t.Run("non-litdoc fenced code block becomes StaticCell", func(t *testing.T) {
