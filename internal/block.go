@@ -20,6 +20,18 @@ const (
 	BlockKindHTMLComment BlockKind = "html_comment"
 )
 
+const (
+	markdownNodeDocument         = "document"
+	markdownNodeSection          = "section"
+	markdownNodeBlockQuote       = "block_quote"
+	markdownNodeBlockQuoteMarker = "block_quote_marker"
+	markdownNodeList             = "list"
+	markdownNodeListItem         = "list_item"
+	markdownNodeFencedCodeBlock  = "fenced_code_block"
+	markdownNodeHTMLBlock        = "html_block"
+	markdownListMarkerPrefix     = "list_marker_"
+)
+
 type Block struct {
 	kind    BlockKind
 	indent  string
@@ -42,6 +54,9 @@ func (b Block) String() string {
 
 var htmlCommentRe = regexp.MustCompile(`(?s)<!--.*?-->`)
 
+// MakeBlocksFromMarkdown parses UTF-8 Markdown into Blocks.
+// Block content is stored without its surrounding quote/list prefix; Block.indent
+// stores the prefix needed to render that Block.content back into the same container.
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	if !utf8.Valid(content) {
 		return nil, fmt.Errorf("markdown content is not valid UTF-8")
@@ -53,16 +68,11 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	}
 
 	root := tree.BlockTree().RootNode()
-	var blocks []Block
-	pos := uint32(0)
+	collector := blockCollector{content: content}
+	collector.collect(root, nil, nil)
+	collector.emitTrailingText()
 
-	collectBlockNodes(root, content, nil, nil, &pos, &blocks)
-
-	if pos < uint32(len(content)) {
-		blocks = append(blocks, MakeBlock(BlockKindText, string(content[pos:]), ""))
-	}
-
-	return splitInlineHTMLComments(blocks), nil
+	return splitInlineHTMLComments(collector.blocks), nil
 }
 
 func splitInlineHTMLComments(blocks []Block) []Block {
@@ -102,98 +112,153 @@ func isWholeTextBlock(content string, loc []int) bool {
 		len(strings.TrimSpace(content[loc[1]:])) == 0
 }
 
-func collectBlockNodes(
+type blockCollector struct {
+	content []byte
+	pos     uint32
+	blocks  []Block
+}
+
+// indent and stripPrefix describe the current markdown container.
+//
+// indent is the prefix used when rendering a Block back into its container.
+// stripPrefix is the source prefix removed from every line before storing block
+// content. They differ for list items: "- " is rendered on the first line, but
+// continuation lines are prefixed by spaces.
+func (c *blockCollector) collect(node *sitter.Node, indent, stripPrefix []byte) {
+	switch node.Type() {
+	case markdownNodeDocument, markdownNodeSection, markdownNodeList:
+		c.collectChildren(node, indent, stripPrefix)
+	case markdownNodeBlockQuote:
+		c.collectBlockQuote(node, indent, stripPrefix)
+	case markdownNodeListItem:
+		c.collectListItem(node, indent, stripPrefix)
+	default:
+		c.collectLeaf(node, indent, stripPrefix)
+	}
+}
+
+func (c *blockCollector) collectChildren(node *sitter.Node, indent, stripPrefix []byte) {
+	for i := 0; i < int(node.ChildCount()); i++ {
+		c.collect(node.Child(i), indent, stripPrefix)
+	}
+}
+
+func (c *blockCollector) collectBlockQuote(
+	node *sitter.Node,
+	indent, stripPrefix []byte,
+) {
+	childIndent := appendPrefix(indent, "> ")
+	childStripPrefix := appendPrefix(stripPrefix, "> ")
+	for i := 0; i < int(node.ChildCount()); i++ {
+		child := node.Child(i)
+		if child.Type() == markdownNodeBlockQuoteMarker {
+			c.emitTextGap(child.StartByte(), childStripPrefix, childIndent)
+			c.pos = child.EndByte()
+			continue
+		}
+		c.collect(child, childIndent, childStripPrefix)
+	}
+}
+
+func (c *blockCollector) collectListItem(node *sitter.Node, indent, stripPrefix []byte) {
+	childIndent, childStripPrefix := listItemPrefixes(node, c.content)
+	for i := 0; i < int(node.ChildCount()); i++ {
+		child := node.Child(i)
+		if isListMarker(child) {
+			c.emitTextGap(child.StartByte(), stripPrefix, indent)
+			c.pos = child.EndByte()
+			continue
+		}
+		c.collect(child, childIndent, childStripPrefix)
+	}
+}
+
+func (c *blockCollector) collectLeaf(node *sitter.Node, indent, stripPrefix []byte) {
+	start := node.StartByte()
+	end := node.EndByte()
+	blockIndent, blockStripPrefix := blockPrefixes(node, c.content, indent, stripPrefix)
+
+	c.emitTextGap(start, stripPrefix, indent)
+
+	raw := stripIndent(c.content[start:end], blockStripPrefix)
+	c.emitBlock(blockKind(node, c.content), raw, blockIndent)
+	c.pos = end
+}
+
+func (c *blockCollector) emitTrailingText() {
+	if c.pos < uint32(len(c.content)) {
+		c.emitBlock(BlockKindText, c.content[c.pos:], nil)
+	}
+}
+
+func (c *blockCollector) emitTextGap(end uint32, stripPrefix, indent []byte) {
+	if end <= c.pos {
+		return
+	}
+	gap := stripIndent(c.content[c.pos:end], stripPrefix)
+	c.emitBlock(BlockKindText, gap, indent)
+}
+
+func (c *blockCollector) emitBlock(kind BlockKind, raw, indent []byte) {
+	if len(raw) == 0 {
+		return
+	}
+	c.blocks = append(c.blocks, MakeBlock(kind, string(raw), string(indent)))
+}
+
+func blockPrefixes(
 	node *sitter.Node,
 	content []byte,
 	indent []byte,
 	stripPrefix []byte,
-	pos *uint32,
-	blocks *[]Block,
-) {
-	switch node.Type() {
-	case "document", "section":
-		for i := 0; i < int(node.ChildCount()); i++ {
-			collectBlockNodes(node.Child(i), content, indent, stripPrefix, pos, blocks)
-		}
-	case "block_quote":
-		childIndent := append(append([]byte(nil), indent...), "> "...)
-		childStripPrefix := append(append([]byte(nil), stripPrefix...), "> "...)
-		for i := 0; i < int(node.ChildCount()); i++ {
-			child := node.Child(i)
-			if child.Type() == "block_quote_marker" {
-				if child.StartByte() > *pos {
-					gap := stripIndent(content[*pos:child.StartByte()], childStripPrefix)
-					if len(gap) > 0 {
-						*blocks = append(*blocks, MakeBlock(BlockKindText, string(gap), string(childIndent)))
-					}
-				}
-				*pos = child.EndByte()
-				continue
-			}
-			collectBlockNodes(child, content, childIndent, childStripPrefix, pos, blocks)
-		}
-	case "list":
-		for i := 0; i < int(node.ChildCount()); i++ {
-			collectBlockNodes(node.Child(i), content, indent, stripPrefix, pos, blocks)
-		}
-	case "list_item":
-		childIndent, childStripPrefix := listItemIndent(node, content)
-		for i := 0; i < int(node.ChildCount()); i++ {
-			child := node.Child(i)
-			if isListMarker(child) {
-				if child.StartByte() > *pos {
-					gap := stripIndent(content[*pos:child.StartByte()], stripPrefix)
-					if len(gap) > 0 {
-						*blocks = append(*blocks, MakeBlock(BlockKindText, string(gap), string(indent)))
-					}
-				}
-				*pos = child.EndByte()
-				continue
-			}
-			collectBlockNodes(child, content, childIndent, childStripPrefix, pos, blocks)
-		}
-	default:
-		start := node.StartByte()
-		end := node.EndByte()
-		blockIndent := indent
-		blockStripPrefix := stripPrefix
-		linePrefix := linePrefixBefore(content, start)
-		if len(linePrefix) > 0 && !bytes.Equal(linePrefix, indent) {
-			blockIndent = linePrefix
-			blockStripPrefix = linePrefix
-			if isSpaceIndent(linePrefix) {
-				rawLeading := leadingLineSpaces(content[start:end])
-				if len(rawLeading) > 0 {
-					blockIndent = append(append([]byte(nil), linePrefix...), rawLeading...)
-					blockStripPrefix = blockIndent
-				}
-			}
-		} else if node.Type() == "fenced_code_block" && len(indent) == 0 {
-			// CommonMark §4.5: a fence may be indented up to 3 spaces; that indent is
-			// part of the block's prefix, not the code content.
+) ([]byte, []byte) {
+	start := node.StartByte()
+	end := node.EndByte()
+	blockIndent := indent
+	blockStripPrefix := stripPrefix
+
+	// Tree-sitter nodes start after some markdown prefixes but include others.
+	// When a node begins after a prefix that differs from the current container,
+	// strip that prefix from stored content and keep it as the render indent.
+	linePrefix := linePrefixBefore(content, start)
+	if len(linePrefix) > 0 && !bytes.Equal(linePrefix, indent) {
+		blockIndent = linePrefix
+		blockStripPrefix = linePrefix
+		if isSpaceIndent(linePrefix) {
 			rawLeading := leadingLineSpaces(content[start:end])
-			if n := len(rawLeading); n > 0 && n <= 3 {
-				blockIndent = rawLeading
-				blockStripPrefix = rawLeading
+			if len(rawLeading) > 0 {
+				blockIndent = append(append([]byte(nil), linePrefix...), rawLeading...)
+				blockStripPrefix = blockIndent
 			}
 		}
-
-		if start > *pos {
-			gap := stripIndent(content[*pos:start], stripPrefix)
-			if len(gap) > 0 {
-				*blocks = append(*blocks, MakeBlock(BlockKindText, string(gap), string(indent)))
-			}
-		}
-
-		raw := stripIndent(content[start:end], blockStripPrefix)
-		if len(raw) > 0 {
-			*blocks = append(*blocks, MakeBlock(blockKind(node, content), string(raw), string(blockIndent)))
-		}
-		*pos = end
+		return blockIndent, blockStripPrefix
 	}
+
+	if node.Type() != markdownNodeFencedCodeBlock || len(indent) > 0 {
+		return blockIndent, blockStripPrefix
+	}
+
+	// CommonMark allows top-level fenced code blocks to be indented up to three
+	// spaces. Treat that as the block prefix rather than code content.
+	rawLeading := leadingLineSpaces(content[start:end])
+	if n := len(rawLeading); n > 0 && n <= 3 {
+		blockIndent = rawLeading
+		blockStripPrefix = rawLeading
+	}
+	return blockIndent, blockStripPrefix
 }
 
-func listItemIndent(node *sitter.Node, content []byte) ([]byte, []byte) {
+func appendPrefix(prefix []byte, suffix string) []byte {
+	result := make([]byte, 0, len(prefix)+len(suffix))
+	result = append(result, prefix...)
+	result = append(result, suffix...)
+	return result
+}
+
+// listItemPrefixes returns both views of a list marker: the marker itself is
+// used when rendering the first line, while equivalent spaces are stripped from
+// continuation lines in the source.
+func listItemPrefixes(node *sitter.Node, content []byte) ([]byte, []byte) {
 	for i := 0; i < int(node.ChildCount()); i++ {
 		child := node.Child(i)
 		if !isListMarker(child) {
@@ -209,7 +274,7 @@ func listItemIndent(node *sitter.Node, content []byte) ([]byte, []byte) {
 }
 
 func isListMarker(node *sitter.Node) bool {
-	return bytes.HasPrefix([]byte(node.Type()), []byte("list_marker_"))
+	return strings.HasPrefix(node.Type(), markdownListMarkerPrefix)
 }
 
 func linePrefixBefore(content []byte, pos uint32) []byte {
@@ -226,6 +291,9 @@ func leadingLineSpaces(content []byte) []byte {
 	return line[:len(line)-len(bytes.TrimLeft(line, " "))]
 }
 
+// stripIndent removes a container prefix from each line before storing content
+// in a Block. Blockquote-only blank lines are normalized to empty lines so the
+// rendered output does not keep stray ">" markers as content.
 func stripIndent(content, indent []byte) []byte {
 	if len(indent) == 0 {
 		return content
@@ -281,9 +349,9 @@ func quoteParentIndent(indent []byte) []byte {
 
 func blockKind(node *sitter.Node, content []byte) BlockKind {
 	switch node.Type() {
-	case "fenced_code_block":
+	case markdownNodeFencedCodeBlock:
 		return BlockKindFencedCode
-	case "html_block":
+	case markdownNodeHTMLBlock:
 		if bytes.HasPrefix(content[node.StartByte():node.EndByte()], []byte("<!--")) {
 			return BlockKindHTMLComment
 		}
