@@ -36,10 +36,18 @@ type Block struct {
 	kind    BlockKind
 	indent  string
 	content string
+	// continuation blocks keep their container indent for embedded newlines,
+	// but do not render that indent before their first line.
+	continuation bool
 }
 
-func MakeBlock(kind BlockKind, content, indent string) Block {
-	return Block{kind: kind, indent: indent, content: content}
+func MakeBlock(kind BlockKind, content, indent string, continuation bool) Block {
+	return Block{
+		kind:         kind,
+		indent:       indent,
+		content:      content,
+		continuation: continuation,
+	}
 }
 
 func (b Block) Kind() BlockKind { return b.kind }
@@ -47,6 +55,8 @@ func (b Block) Kind() BlockKind { return b.kind }
 func (b Block) Indent() string { return b.indent }
 
 func (b Block) Content() string { return b.content }
+
+func (b Block) Continuation() bool { return b.continuation }
 
 func (b Block) String() string {
 	return fmt.Sprintf("{%s %q}", b.kind, b.content)
@@ -97,17 +107,28 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 		pos := 0
 		for _, loc := range locs {
 			if loc[0] > pos {
-				result = append(result, MakeBlock(BlockKindText, content[pos:loc[0]], b.indent))
+				result = append(result, MakeBlock(
+					BlockKindText,
+					content[pos:loc[0]],
+					b.indent,
+					b.continuation || pos > 0,
+				))
 			}
-			commentIndent := ""
-			if isWholeTextBlock(content, loc) {
-				commentIndent = b.indent
+			wholeBlock := isWholeTextBlock(content, loc)
+			commentContinuation := b.continuation
+			if !wholeBlock {
+				commentContinuation = b.continuation || loc[0] > 0
 			}
-			result = append(result, MakeBlock(BlockKindHTMLComment, content[loc[0]:loc[1]], commentIndent))
+			result = append(result, MakeBlock(
+				BlockKindHTMLComment,
+				content[loc[0]:loc[1]],
+				b.indent,
+				commentContinuation,
+			))
 			pos = loc[1]
 		}
 		if pos < len(content) {
-			result = append(result, MakeBlock(BlockKindText, content[pos:], b.indent))
+			result = append(result, MakeBlock(BlockKindText, content[pos:], b.indent, true))
 		}
 	}
 	return result
@@ -224,7 +245,7 @@ func (c *blockCollector) emitBlock(kind BlockKind, raw, indent []byte) {
 	if len(raw) == 0 {
 		return
 	}
-	c.blocks = append(c.blocks, MakeBlock(kind, string(raw), string(indent)))
+	c.blocks = append(c.blocks, MakeBlock(kind, string(raw), string(indent), false))
 }
 
 func blockPrefixes(

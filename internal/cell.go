@@ -106,7 +106,7 @@ func renderStaticBlock(b Block) string {
 				rendered.WriteString(continuationIndent)
 			}
 		} else {
-			if len(line) > 0 {
+			if len(line) > 0 && !b.continuation {
 				rendered.WriteString(b.indent)
 			}
 		}
@@ -119,8 +119,9 @@ func renderStaticBlock(b Block) string {
 }
 
 func blockContinuationIndent(indent string) string {
-	if strings.HasSuffix(indent, "> ") {
-		return indent
+	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
+		prefixLen := idx + len("> ")
+		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
 	}
 	return strings.Repeat(" ", len(indent))
 }

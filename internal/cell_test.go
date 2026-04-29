@@ -59,6 +59,7 @@ func TestParseInfoString(t *testing.T) {
 				internal.BlockKindText,
 				"hello",
 				"",
+				false,
 			),
 			want: internal.InfoString{},
 		},
@@ -68,6 +69,7 @@ func TestParseInfoString(t *testing.T) {
 				internal.BlockKindFencedCode,
 				"```bash\necho hello\n```\n",
 				"",
+				false,
 			),
 			want: internal.InfoString{Lang: "bash"},
 		},
@@ -77,6 +79,7 @@ func TestParseInfoString(t *testing.T) {
 				internal.BlockKindFencedCode,
 				"```bash | litdoc\necho hello\n```\n",
 				"",
+				false,
 			),
 			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
 		},
@@ -86,6 +89,7 @@ func TestParseInfoString(t *testing.T) {
 				internal.BlockKindHTMLComment,
 				"<!-- bash | litdoc\necho hello\n-->\n",
 				"",
+				false,
 			),
 			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
 		},
@@ -221,12 +225,42 @@ func TestCompose(t *testing.T) {
 	})
 }
 
+func TestComposePreservesInlineHTMLCommentContinuations(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "list",
+			input: "- text <!-- comment --><!--\n  comment --> text",
+		},
+		{
+			name:  "blockquote list",
+			input: "> - text <!-- comment --><!--\n>   comment --> text",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blocks, err := internal.MakeBlocksFromMarkdown([]byte(tt.input))
+			require.NoError(t, err)
+			cells, err := internal.Classify(blocks)
+			require.NoError(t, err)
+
+			got, err := internal.Compose(cells)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.input, got)
+		})
+	}
+}
+
 func TestClassify(t *testing.T) {
 	textBlock := func(content string) internal.Block {
-		return internal.MakeBlock(internal.BlockKindText, content, "")
+		return internal.MakeBlock(internal.BlockKindText, content, "", false)
 	}
 	bashLitdocBlock := func(content string) internal.Block {
-		return internal.MakeBlock(internal.BlockKindFencedCode, content, "")
+		return internal.MakeBlock(internal.BlockKindFencedCode, content, "", false)
 	}
 
 	t.Run("single text block becomes StaticCell", func(t *testing.T) {
@@ -293,7 +327,7 @@ func TestClassify(t *testing.T) {
 		// given
 		code := "```bash\necho hello\n```\n"
 		blocks := []internal.Block{
-			internal.MakeBlock(internal.BlockKindFencedCode, code, ""),
+			internal.MakeBlock(internal.BlockKindFencedCode, code, "", false),
 		}
 
 		// when

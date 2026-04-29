@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func text(indent, content string) internal.Block {
-	return internal.MakeBlock(internal.BlockKindText, content, indent)
+func text(indent, content string, continuation bool) internal.Block {
+	return internal.MakeBlock(internal.BlockKindText, content, indent, continuation)
 }
 
-func code(indent, content string) internal.Block {
-	return internal.MakeBlock(internal.BlockKindFencedCode, content, indent)
+func code(indent, content string, continuation bool) internal.Block {
+	return internal.MakeBlock(internal.BlockKindFencedCode, content, indent, continuation)
 }
 
-func comment(indent, content string) internal.Block {
-	return internal.MakeBlock(internal.BlockKindHTMLComment, content, indent)
+func cmnt(indent, content string, continuation bool) internal.Block {
+	return internal.MakeBlock(internal.BlockKindHTMLComment, content, indent, continuation)
 }
 
 func joinLines(lines ...string) string {
@@ -31,14 +31,16 @@ func TestMakeBlock(t *testing.T) {
 	kind := internal.BlockKindFencedCode
 	content := "```bash\necho hello\n```\n"
 	indent := "> "
+	continuation := true
 
 	// when
-	got := internal.MakeBlock(kind, content, indent)
+	got := internal.MakeBlock(kind, content, indent, continuation)
 
 	// then
 	assert.Equal(t, kind, got.Kind())
 	assert.Equal(t, content, got.Content())
 	assert.Equal(t, indent, got.Indent())
+	assert.Equal(t, continuation, got.Continuation())
 }
 
 func TestMakeBlocksFromMarkdown(t *testing.T) {
@@ -52,7 +54,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			name:  "Text/heading",
 			input: "# Hello\n",
 			want: []internal.Block{
-				text("", "# Hello\n"),
+				text("", "# Hello\n", false),
 			},
 		},
 		{
@@ -68,13 +70,13 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"",
 			),
 			want: []internal.Block{
-				text("", "# Level 1\n"),
-				text("", "\n"),
-				text("", "some text\n"),
-				text("", "\n"),
-				text("", "## Level 2\n"),
-				text("", "\n"),
-				text("", "more text\n"),
+				text("", "# Level 1\n", false),
+				text("", "\n", false),
+				text("", "some text\n", false),
+				text("", "\n", false),
+				text("", "## Level 2\n", false),
+				text("", "\n", false),
+				text("", "more text\n", false),
 			},
 		},
 		{
@@ -86,9 +88,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"last line",
 			),
 			want: []internal.Block{
-				text("", "text\nand more text\n"),
-				text("", "\n"),
-				text("", "last line"),
+				text("", "text\nand more text\n", false),
+				text("", "\n", false),
+				text("", "last line", false),
 			},
 		},
 		{
@@ -99,7 +101,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"after line break",
 			),
 			want: []internal.Block{
-				text("", "text\nand more text  \nafter line break"),
+				text("", "text\nand more text  \nafter line break", false),
 			},
 		},
 		{
@@ -109,21 +111,21 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"    echo \"world\"",
 			),
 			want: []internal.Block{
-				text("", "    echo \"hello, \"\n    echo \"world\""),
+				text("", "    echo \"hello, \"\n    echo \"world\"", false),
 			},
 		},
 		{
 			name:  "Text/inline-code-span",
 			input: "text `echo \"hello, \" text`",
 			want: []internal.Block{
-				text("", "text `echo \"hello, \" text`"),
+				text("", "text `echo \"hello, \" text`", false),
 			},
 		},
 		{
 			name:  "Text/html-block-not-comment",
 			input: "<div>\nhello\n</div>\n",
 			want: []internal.Block{
-				text("", "<div>\nhello\n</div>\n"),
+				text("", "<div>\nhello\n</div>\n", false),
 			},
 		},
 		{
@@ -135,9 +137,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> again",
 			),
 			want: []internal.Block{
-				text("> ", "hello, \nworld\n"),
-				text("> ", "\n"),
-				text("> ", "again"),
+				text("> ", "hello, \nworld\n", false),
+				text("> ", "\n", false),
+				text("> ", "again", false),
 			},
 		},
 
@@ -151,7 +153,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"",
 			),
 			want: []internal.Block{
-				code("", "```bash\necho \"hello\"\n```\n"),
+				code("", "```bash\necho \"hello\"\n```\n", false),
 			},
 		},
 		{
@@ -162,7 +164,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"```",
 			),
 			want: []internal.Block{
-				code("", "```bash\necho \"hello\"\n```"),
+				code("", "```bash\necho \"hello\"\n```", false),
 			},
 		},
 		{
@@ -173,7 +175,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"~~~",
 			),
 			want: []internal.Block{
-				code("", "~~~bash\necho \"hello\"\n~~~"),
+				code("", "~~~bash\necho \"hello\"\n~~~", false),
 			},
 		},
 		{
@@ -186,7 +188,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"````",
 			),
 			want: []internal.Block{
-				code("", "````md\n```bash\necho \"hello\"\n```\n````"),
+				code("", "````md\n```bash\necho \"hello\"\n```\n````", false),
 			},
 		},
 		{
@@ -197,7 +199,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"```",
 			),
 			want: []internal.Block{
-				code("", "```\necho \"hello\"\n```"),
+				code("", "```\necho \"hello\"\n```", false),
 			},
 		},
 		{
@@ -207,7 +209,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"```",
 			),
 			want: []internal.Block{
-				code("", "```bash\n```"),
+				code("", "```bash\n```", false),
 			},
 		},
 		{
@@ -222,9 +224,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"```",
 			),
 			want: []internal.Block{
-				code("", "```bash\necho a\n```\n"),
-				text("", "\n"),
-				code("", "```bash\necho b\n```"),
+				code("", "```bash\necho a\n```\n", false),
+				text("", "\n", false),
+				code("", "```bash\necho b\n```", false),
 			},
 		},
 		{
@@ -235,7 +237,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				" ```",
 			),
 			want: []internal.Block{
-				code(" ", "```bash\necho \"hello\"\n```"),
+				code(" ", "```bash\necho \"hello\"\n```", false),
 			},
 		},
 		{
@@ -246,7 +248,7 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"   ```",
 			),
 			want: []internal.Block{
-				code("   ", "```bash\necho \"hello\"\n```"),
+				code("   ", "```bash\necho \"hello\"\n```", false),
 			},
 		},
 		// FencedCode — inside containers.
@@ -260,9 +262,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				code("> ", "```bash\necho \"hello\"\n```\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				code("> ", "```bash\necho \"hello\"\n```\n", false),
+				text("> ", "text", false),
 			},
 		},
 		{
@@ -275,9 +277,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				code("> > ", "```bash\necho \"hello\"\n```\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				code("> > ", "```bash\necho \"hello\"\n```\n", false),
+				text("> ", "text", false),
 			},
 		},
 		{
@@ -290,9 +292,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"- text",
 			),
 			want: []internal.Block{
-				text("- ", "text\n"),
-				code("- ", "```bash\necho \"hello\"\n```\n"),
-				text("- ", "text"),
+				text("- ", "text\n", false),
+				code("- ", "```bash\necho \"hello\"\n```\n", false),
+				text("- ", "text", false),
 			},
 		},
 		{
@@ -305,9 +307,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"- text",
 			),
 			want: []internal.Block{
-				text("- ", "text\n"),
-				code("  - ", "```bash\necho \"hello\"\n```\n"),
-				text("- ", "text"),
+				text("- ", "text\n", false),
+				code("  - ", "```bash\necho \"hello\"\n```\n", false),
+				text("- ", "text", false),
 			},
 		},
 		{
@@ -320,9 +322,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"+ text",
 			),
 			want: []internal.Block{
-				text("+ ", "text\n"),
-				code("+ ", "~~~bash\necho \"hello\"\n~~~\n"),
-				text("+ ", "text"),
+				text("+ ", "text\n", false),
+				code("+ ", "~~~bash\necho \"hello\"\n~~~\n", false),
+				text("+ ", "text", false),
 			},
 		},
 		{
@@ -335,9 +337,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"3. text",
 			),
 			want: []internal.Block{
-				text("1. ", "text\n"),
-				code("2. ", "```bash\necho \"hello\"\n```\n"),
-				text("3. ", "text"),
+				text("1. ", "text\n", false),
+				code("2. ", "```bash\necho \"hello\"\n```\n", false),
+				text("3. ", "text", false),
 			},
 		},
 		{
@@ -350,9 +352,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"2. text",
 			),
 			want: []internal.Block{
-				text("1. ", "text\n"),
-				code("   1. ", "```bash\necho \"hello\"\n```\n"),
-				text("2. ", "text"),
+				text("1. ", "text\n", false),
+				code("   1. ", "```bash\necho \"hello\"\n```\n", false),
+				text("2. ", "text", false),
 			},
 		},
 		{
@@ -365,9 +367,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"- text",
 			),
 			want: []internal.Block{
-				text("- ", "text\n"),
-				code("  > ", "```bash\necho \"hello\"\n```\n"),
-				text("- ", "text"),
+				text("- ", "text\n", false),
+				code("  > ", "```bash\necho \"hello\"\n```\n", false),
+				text("- ", "text", false),
 			},
 		},
 		{
@@ -381,10 +383,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				text("> - ", "item\n"),
-				code(">   - ", "```bash\necho \"hello\"\n```\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				text("> - ", "item\n", false),
+				code(">   - ", "```bash\necho \"hello\"\n```\n", false),
+				text("> ", "text", false),
 			},
 		},
 		{
@@ -397,9 +399,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				code("> 1. ", "```bash\necho \"hello\"\n```\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				code("> 1. ", "```bash\necho \"hello\"\n```\n", false),
+				text("> ", "text", false),
 			},
 		},
 
@@ -408,27 +410,27 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			name:  "HTMLComment/top-level/inline",
 			input: "text <!-- comment --> text",
 			want: []internal.Block{
-				text("", "text "),
-				comment("", "<!-- comment -->"),
-				text("", " text"),
+				text("", "text ", false),
+				cmnt("", "<!-- comment -->", true),
+				text("", " text", true),
 			},
 		},
 		{
 			name:  "HTMLComment/top-level/inline-multiple",
 			input: "text <!-- comment --><!--\ncomment --> text",
 			want: []internal.Block{
-				text("", "text "),
-				comment("", "<!-- comment -->"),
-				comment("", "<!--\ncomment -->"),
-				text("", " text"),
+				text("", "text ", false),
+				cmnt("", "<!-- comment -->", true),
+				cmnt("", "<!--\ncomment -->", true),
+				text("", " text", true),
 			},
 		},
 		{
 			name:  "HTMLComment/top-level/inline-at-line-end",
 			input: "text <!-- comment -->",
 			want: []internal.Block{
-				text("", "text "),
-				comment("", "<!-- comment -->"),
+				text("", "text ", false),
+				cmnt("", "<!-- comment -->", true),
 			},
 		},
 		{
@@ -441,16 +443,16 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"text",
 			),
 			want: []internal.Block{
-				text("", "text\n"),
-				comment("", "<!--\ncomment\n-->\n"),
-				text("", "text"),
+				text("", "text\n", false),
+				cmnt("", "<!--\ncomment\n-->\n", false),
+				text("", "text", false),
 			},
 		},
 		{
 			name:  "HTMLComment/top-level/block-empty",
 			input: "<!---->\n",
 			want: []internal.Block{
-				comment("", "<!---->\n"),
+				cmnt("", "<!---->\n", false),
 			},
 		},
 		{
@@ -462,18 +464,18 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"",
 			),
 			want: []internal.Block{
-				comment("", "<!-- a -->\n"),
-				text("", "\n"),
-				comment("", "<!-- b -->\n"),
+				cmnt("", "<!-- a -->\n", false),
+				text("", "\n", false),
+				cmnt("", "<!-- b -->\n", false),
 			},
 		},
 		{
 			name:  "HTMLComment/top-level/in-heading-line",
 			input: "# Title <!-- comment -->\n",
 			want: []internal.Block{
-				text("", "# Title "),
-				comment("", "<!-- comment -->"),
-				text("", "\n"),
+				text("", "# Title ", false),
+				cmnt("", "<!-- comment -->", true),
+				text("", "\n", true),
 			},
 		},
 
@@ -482,10 +484,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			name:  "HTMLComment/blockquote/inline-multiple",
 			input: "> text <!-- comment --><!--\n> comment --> text",
 			want: []internal.Block{
-				text("> ", "text "),
-				comment("", "<!-- comment -->"),
-				comment("", "<!--\ncomment -->"),
-				text("> ", " text"),
+				text("> ", "text ", false),
+				cmnt("> ", "<!-- comment -->", true),
+				cmnt("> ", "<!--\ncomment -->", true),
+				text("> ", " text", true),
 			},
 		},
 		{
@@ -498,29 +500,29 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				comment("> > ", "<!--\ncomment\n-->\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				cmnt("> > ", "<!--\ncomment\n-->\n", false),
+				text("> ", "text", false),
 			},
 		},
 		{
 			name:  "HTMLComment/list/dash/inline-multiple",
 			input: "- text <!-- comment --><!--\n  comment --> text",
 			want: []internal.Block{
-				text("- ", "text "),
-				comment("", "<!-- comment -->"),
-				comment("", "<!--\ncomment -->"),
-				text("- ", " text"),
+				text("- ", "text ", false),
+				cmnt("- ", "<!-- comment -->", true),
+				cmnt("- ", "<!--\ncomment -->", true),
+				text("- ", " text", true),
 			},
 		},
 		{
 			name:  "HTMLComment/list/dash/nested/inline-multiple",
 			input: "  - text <!-- comment --><!--\n    comment --> text",
 			want: []internal.Block{
-				text("  - ", "text "),
-				comment("", "<!-- comment -->"),
-				comment("", "<!--\ncomment -->"),
-				text("  - ", " text"),
+				text("  - ", "text ", false),
+				cmnt("  - ", "<!-- comment -->", true),
+				cmnt("  - ", "<!--\ncomment -->", true),
+				text("  - ", " text", true),
 			},
 		},
 		{
@@ -533,9 +535,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"- text",
 			),
 			want: []internal.Block{
-				text("- ", "text\n"),
-				comment("- ", "<!--\ncomment\n-->\n"),
-				text("- ", "text"),
+				text("- ", "text\n", false),
+				cmnt("- ", "<!--\ncomment\n-->\n", false),
+				text("- ", "text", false),
 			},
 		},
 		{
@@ -548,9 +550,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"- text",
 			),
 			want: []internal.Block{
-				text("- ", "text\n"),
-				comment("  - ", "<!--\ncomment\n-->\n"),
-				text("- ", "text"),
+				text("- ", "text\n", false),
+				cmnt("  - ", "<!--\ncomment\n-->\n", false),
+				text("- ", "text", false),
 			},
 		},
 		{
@@ -563,9 +565,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"* text",
 			),
 			want: []internal.Block{
-				text("* ", "text\n"),
-				comment("* ", "<!--\ncomment\n-->\n"),
-				text("* ", "text"),
+				text("* ", "text\n", false),
+				cmnt("* ", "<!--\ncomment\n-->\n", false),
+				text("* ", "text", false),
 			},
 		},
 		{
@@ -578,19 +580,19 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"3. text",
 			),
 			want: []internal.Block{
-				text("1. ", "text\n"),
-				comment("2. ", "<!--\ncomment\n-->\n"),
-				text("3. ", "text"),
+				text("1. ", "text\n", false),
+				cmnt("2. ", "<!--\ncomment\n-->\n", false),
+				text("3. ", "text", false),
 			},
 		},
 		{
 			name:  "HTMLComment/blockquote/list/inline-multiple",
 			input: "> - text <!-- comment --><!--\n>   comment --> text",
 			want: []internal.Block{
-				text("> - ", "text "),
-				comment("", "<!-- comment -->"),
-				comment("", "<!--\ncomment -->"),
-				text("> - ", " text"),
+				text("> - ", "text ", false),
+				cmnt("> - ", "<!-- comment -->", true),
+				cmnt("> - ", "<!--\ncomment -->", true),
+				text("> - ", " text", true),
 			},
 		},
 		{
@@ -603,9 +605,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				comment("> - ", "<!--\ncomment\n-->\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				cmnt("> - ", "<!--\ncomment\n-->\n", false),
+				text("> ", "text", false),
 			},
 		},
 		{
@@ -618,9 +620,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> text",
 			),
 			want: []internal.Block{
-				text("> ", "text\n"),
-				comment("> > - ", "<!--\ncomment\n-->\n"),
-				text("> ", "text"),
+				text("> ", "text\n", false),
+				cmnt("> > - ", "<!--\ncomment\n-->\n", false),
+				text("> ", "text", false),
 			},
 		},
 		{
@@ -633,9 +635,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"2. text",
 			),
 			want: []internal.Block{
-				text("1. ", "text\n"),
-				comment("   > ", "<!--\ncomment\n-->\n"),
-				text("2. ", "text"),
+				text("1. ", "text\n", false),
+				cmnt("   > ", "<!--\ncomment\n-->\n", false),
+				text("2. ", "text", false),
 			},
 		},
 	}
@@ -659,6 +661,13 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				assert.Equal(t, w.Kind(), blocks[i].Kind(), "block[%d] kind", i)
 				assert.Equal(t, w.Indent(), blocks[i].Indent(), "block[%d] indent", i)
 				assert.Equal(t, w.Content(), blocks[i].Content(), "block[%d] content", i)
+				assert.Equal(
+					t,
+					w.Continuation(),
+					blocks[i].Continuation(),
+					"block[%d] continuation",
+					i,
+				)
 			}
 		})
 	}
