@@ -24,11 +24,7 @@ type Block struct {
 	content []byte
 }
 
-func MakeBlockFromRaw(kind BlockKind, raw []byte) Block {
-	return Block{kind: kind, content: raw}
-}
-
-func makeBlock(kind BlockKind, content, indent []byte) Block {
+func MakeBlock(kind BlockKind, content, indent []byte) Block {
 	return Block{kind: kind, indent: indent, content: content}
 }
 
@@ -57,7 +53,7 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	collectBlockNodes(root, content, nil, nil, &pos, &blocks)
 
 	if pos < uint32(len(content)) {
-		blocks = append(blocks, makeBlock(BlockKindText, content[pos:], nil))
+		blocks = append(blocks, MakeBlock(BlockKindText, content[pos:], nil))
 	}
 
 	return splitInlineHTMLComments(blocks), nil
@@ -79,17 +75,17 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 		pos := 0
 		for _, loc := range locs {
 			if loc[0] > pos {
-				result = append(result, makeBlock(BlockKindText, content[pos:loc[0]], b.indent))
+				result = append(result, MakeBlock(BlockKindText, content[pos:loc[0]], b.indent))
 			}
 			commentIndent := []byte(nil)
 			if isWholeTextBlock(content, loc) {
 				commentIndent = b.indent
 			}
-			result = append(result, makeBlock(BlockKindHTMLComment, content[loc[0]:loc[1]], commentIndent))
+			result = append(result, MakeBlock(BlockKindHTMLComment, content[loc[0]:loc[1]], commentIndent))
 			pos = loc[1]
 		}
 		if pos < len(content) {
-			result = append(result, makeBlock(BlockKindText, content[pos:], b.indent))
+			result = append(result, MakeBlock(BlockKindText, content[pos:], b.indent))
 		}
 	}
 	return result
@@ -122,7 +118,7 @@ func collectBlockNodes(
 				if child.StartByte() > *pos {
 					gap := stripIndent(content[*pos:child.StartByte()], childStripPrefix)
 					if len(gap) > 0 {
-						*blocks = append(*blocks, makeBlock(BlockKindText, gap, childIndent))
+						*blocks = append(*blocks, MakeBlock(BlockKindText, gap, childIndent))
 					}
 				}
 				*pos = child.EndByte()
@@ -142,7 +138,7 @@ func collectBlockNodes(
 				if child.StartByte() > *pos {
 					gap := stripIndent(content[*pos:child.StartByte()], stripPrefix)
 					if len(gap) > 0 {
-						*blocks = append(*blocks, makeBlock(BlockKindText, gap, indent))
+						*blocks = append(*blocks, MakeBlock(BlockKindText, gap, indent))
 					}
 				}
 				*pos = child.EndByte()
@@ -166,18 +162,26 @@ func collectBlockNodes(
 					blockStripPrefix = blockIndent
 				}
 			}
+		} else if node.Type() == "fenced_code_block" && len(indent) == 0 {
+			// CommonMark §4.5: a fence may be indented up to 3 spaces; that indent is
+			// part of the block's prefix, not the code content.
+			rawLeading := leadingLineSpaces(content[start:end])
+			if n := len(rawLeading); n > 0 && n <= 3 {
+				blockIndent = rawLeading
+				blockStripPrefix = rawLeading
+			}
 		}
 
 		if start > *pos {
 			gap := stripIndent(content[*pos:start], stripPrefix)
 			if len(gap) > 0 {
-				*blocks = append(*blocks, makeBlock(BlockKindText, gap, indent))
+				*blocks = append(*blocks, MakeBlock(BlockKindText, gap, indent))
 			}
 		}
 
 		raw := stripIndent(content[start:end], blockStripPrefix)
 		if len(raw) > 0 {
-			*blocks = append(*blocks, makeBlock(blockKind(node, content), raw, blockIndent))
+			*blocks = append(*blocks, MakeBlock(blockKind(node, content), raw, blockIndent))
 		}
 		*pos = end
 	}

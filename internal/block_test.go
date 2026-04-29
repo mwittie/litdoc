@@ -10,46 +10,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMakeBlockFromRaw(t *testing.T) {
-	// given
-	kind := internal.BlockKindFencedCode
-	content := []byte("```bash\necho hello\n```\n")
+type wantBlock struct {
+	kind    internal.BlockKind
+	indent  string
+	content string
+}
 
-	// when
-	got := internal.MakeBlockFromRaw(kind, content)
+func text(indent, content string) wantBlock {
+	return wantBlock{internal.BlockKindText, indent, content}
+}
 
-	// then
-	assert.Equal(t, kind, got.Kind())
-	assert.Equal(t, content, got.Content())
+func code(indent, content string) wantBlock {
+	return wantBlock{internal.BlockKindFencedCode, indent, content}
+}
+
+func comment(indent, content string) wantBlock {
+	return wantBlock{internal.BlockKindHTMLComment, indent, content}
 }
 
 func joinLines(lines ...string) string {
 	return strings.Join(lines, "\n")
 }
 
+func TestMakeBlock(t *testing.T) {
+	// given
+	kind := internal.BlockKindFencedCode
+	content := []byte("```bash\necho hello\n```\n")
+	indent := []byte("> ")
+
+	// when
+	got := internal.MakeBlock(kind, content, indent)
+
+	// then
+	assert.Equal(t, kind, got.Kind())
+	assert.Equal(t, content, got.Content())
+	assert.Equal(t, indent, got.Indent())
+}
+
 func TestMakeBlocksFromMarkdown(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
-		want  []struct {
-			kind    internal.BlockKind
-			indent  string
-			content string
-		}
+		want  []wantBlock
 	}{
+		// Text — baseline cases that should produce no FencedCode or HTMLComment blocks.
 		{
-			name:  "heading",
+			name:  "Text/heading",
 			input: "# Hello\n",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "# Hello\n"},
+			want: []wantBlock{
+				text("", "# Hello\n"),
 			},
 		},
 		{
-			name: "nested heading and text",
+			name: "Text/heading/nested",
 			input: joinLines(
 				"# Level 1",
 				"",
@@ -60,101 +73,117 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"more text",
 				"",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "# Level 1\n"},
-				{internal.BlockKindText, "", "\n"},
-				{internal.BlockKindText, "", "some text\n"},
-				{internal.BlockKindText, "", "\n"},
-				{internal.BlockKindText, "", "## Level 2\n"},
-				{internal.BlockKindText, "", "\n"},
-				{internal.BlockKindText, "", "more text\n"},
+			want: []wantBlock{
+				text("", "# Level 1\n"),
+				text("", "\n"),
+				text("", "some text\n"),
+				text("", "\n"),
+				text("", "## Level 2\n"),
+				text("", "\n"),
+				text("", "more text\n"),
 			},
 		},
 		{
-			name: "paragraphs grouped together",
+			name: "Text/paragraph/grouped",
 			input: joinLines(
 				"text",
 				"and more text",
 				"",
 				"last line",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "text\nand more text\n"},
-				{internal.BlockKindText, "", "\n"},
-				{internal.BlockKindText, "", "last line"},
+			want: []wantBlock{
+				text("", "text\nand more text\n"),
+				text("", "\n"),
+				text("", "last line"),
 			},
 		},
 		{
-			name: "line break grouped with paragraph",
+			name: "Text/paragraph/line-break",
 			input: joinLines(
 				"text",
 				"and more text  ",
 				"after line break",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "text\nand more text  \nafter line break"},
+			want: []wantBlock{
+				text("", "text\nand more text  \nafter line break"),
 			},
 		},
 		{
-			name: "fenced code block as single block",
+			name: "Text/indented-code-as-text",
+			input: joinLines(
+				"    echo \"hello, \"",
+				"    echo \"world\"",
+			),
+			want: []wantBlock{
+				text("", "    echo \"hello, \"\n    echo \"world\""),
+			},
+		},
+		{
+			name:  "Text/inline-code-span",
+			input: "text `echo \"hello, \" text`",
+			want: []wantBlock{
+				text("", "text `echo \"hello, \" text`"),
+			},
+		},
+		{
+			name:  "Text/html-block-not-comment",
+			input: "<div>\nhello\n</div>\n",
+			want: []wantBlock{
+				text("", "<div>\nhello\n</div>\n"),
+			},
+		},
+		{
+			name: "Text/blockquote/multiline",
+			input: joinLines(
+				"> hello, ",
+				"> world",
+				"> ",
+				"> again",
+			),
+			want: []wantBlock{
+				text("> ", "hello, \nworld\n"),
+				text("> ", "\n"),
+				text("> ", "again"),
+			},
+		},
+
+		// FencedCode — top-level (CommonMark §4.5).
+		{
+			name: "FencedCode/top-level/backtick",
 			input: joinLines(
 				"```bash",
 				"echo \"hello\"",
 				"```",
 				"",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindFencedCode, "", "```bash\necho \"hello\"\n```\n"},
+			want: []wantBlock{
+				code("", "```bash\necho \"hello\"\n```\n"),
 			},
 		},
 		{
-			name: "fenced code block with no trailing newline",
+			name: "FencedCode/top-level/backtick-no-trailing-newline",
 			input: joinLines(
 				"```bash",
 				"echo \"hello\"",
 				"```",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindFencedCode, "", "```bash\necho \"hello\"\n```"},
+			want: []wantBlock{
+				code("", "```bash\necho \"hello\"\n```"),
 			},
 		},
 		{
-			name: "tilde fenced code block as single block",
+			name: "FencedCode/top-level/tilde",
 			input: joinLines(
 				"~~~bash",
 				"echo \"hello\"",
 				"~~~",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindFencedCode, "", "~~~bash\necho \"hello\"\n~~~"},
+			want: []wantBlock{
+				code("", "~~~bash\necho \"hello\"\n~~~"),
 			},
 		},
 		{
-			name: "longer backtick fence as single block",
+			name: "FencedCode/top-level/longer-fence-around-fence",
 			input: joinLines(
 				"````md",
 				"```bash",
@@ -162,180 +191,84 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"```",
 				"````",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{
-					internal.BlockKindFencedCode,
-					"",
-					"````md\n```bash\necho \"hello\"\n```\n````",
-				},
+			want: []wantBlock{
+				code("", "````md\n```bash\necho \"hello\"\n```\n````"),
 			},
 		},
 		{
-			name: "indented code block",
+			name: "FencedCode/top-level/no-info-string",
 			input: joinLines(
-				"    echo \"hello, \"",
-				"    echo \"world\"",
+				"```",
+				"echo \"hello\"",
+				"```",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{
-					internal.BlockKindText,
-					"",
-					"    echo \"hello, \"\n    echo \"world\"",
-				},
+			want: []wantBlock{
+				code("", "```\necho \"hello\"\n```"),
 			},
 		},
 		{
-			name:  "inline code block",
-			input: "text `echo \"hello, \" text`",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "text `echo \"hello, \" text`"},
-			},
-		},
-		{
-			name:  "html comment inline comment",
-			input: "text <!-- comment --> text",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "text "},
-				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
-				{internal.BlockKindText, "", " text"},
-			},
-		},
-		{
-			name:  "multiple inline html comments",
-			input: "text <!-- comment --><!--\ncomment --> text",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "text "},
-				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
-				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
-				{internal.BlockKindText, "", " text"},
-			},
-		},
-		{
-			name:  "blockquote with multiple inline html comments",
-			input: "> text <!-- comment --><!--\n> comment --> text",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text "},
-				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
-				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
-				{internal.BlockKindText, "> ", " text"},
-			},
-		},
-		{
-			name:  "list with multiple inline html comments",
-			input: "- text <!-- comment --><!--\n  comment --> text",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "- ", "text "},
-				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
-				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
-				{internal.BlockKindText, "- ", " text"},
-			},
-		},
-		{
-			name:  "nested list with multiple inline html comments",
-			input: "  - text <!-- comment --><!--\n    comment --> text",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "  - ", "text "},
-				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
-				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
-				{internal.BlockKindText, "  - ", " text"},
-			},
-		},
-		{
-			name:  "blockquote list with multiple inline html comments",
-			input: "> - text <!-- comment --><!--\n>   comment --> text",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> - ", "text "},
-				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
-				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
-				{internal.BlockKindText, "> - ", " text"},
-			},
-		},
-		{
-			name: "html comment block comment",
+			name: "FencedCode/top-level/empty",
 			input: joinLines(
-				"text",
-				"<!--",
-				"comment",
-				"-->",
-				"text",
+				"```bash",
+				"```",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "text\n"},
-				{internal.BlockKindHTMLComment, "", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "", "text"},
+			want: []wantBlock{
+				code("", "```bash\n```"),
 			},
 		},
 		{
-			name:  "html block is not a comment",
-			input: "<div>\nhello\n</div>\n",
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "", "<div>\nhello\n</div>\n"},
-			},
-		},
-		{
-			name: "multiline blockquote",
+			name: "FencedCode/top-level/consecutive",
 			input: joinLines(
-				"> hello, ",
-				"> world",
-				"> ",
-				"> again",
+				"```bash",
+				"echo a",
+				"```",
+				"",
+				"```bash",
+				"echo b",
+				"```",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "hello, \nworld\n"},
-				{internal.BlockKindText, "> ", "\n"},
-				{internal.BlockKindText, "> ", "again"},
+			want: []wantBlock{
+				code("", "```bash\necho a\n```\n"),
+				text("", "\n"),
+				code("", "```bash\necho b\n```"),
 			},
 		},
 		{
-			name: "blockquote with fenced code block",
+			name: "FencedCode/top-level/indented-1-space",
+			input: joinLines(
+				" ```bash",
+				" echo \"hello\"",
+				" ```",
+			),
+			want: []wantBlock{
+				code(" ", "```bash\necho \"hello\"\n```"),
+			},
+		},
+		{
+			name: "FencedCode/top-level/indented-3-spaces",
+			input: joinLines(
+				"   ```bash",
+				"   echo \"hello\"",
+				"   ```",
+			),
+			want: []wantBlock{
+				code("   ", "```bash\necho \"hello\"\n```"),
+			},
+		},
+		{
+			name: "FencedCode/top-level/unclosed-runs-to-eof",
+			input: joinLines(
+				"```bash",
+				"echo \"hello\"",
+			),
+			want: []wantBlock{
+				code("", "```bash\necho \"hello\""),
+			},
+		},
+
+		// FencedCode — inside containers.
+		{
+			name: "FencedCode/blockquote",
 			input: joinLines(
 				"> text",
 				"> ```bash",
@@ -343,18 +276,14 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> ```",
 				"> text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindFencedCode, "> ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "> ", "text"},
+			want: []wantBlock{
+				text("> ", "text\n"),
+				code("> ", "```bash\necho \"hello\"\n```\n"),
+				text("> ", "text"),
 			},
 		},
 		{
-			name: "nested blockquote with fenced code block",
+			name: "FencedCode/blockquote/nested",
 			input: joinLines(
 				"> text",
 				"> > ```bash",
@@ -362,37 +291,14 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> > ```",
 				"> text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindFencedCode, "> > ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "> ", "text"},
+			want: []wantBlock{
+				text("> ", "text\n"),
+				code("> > ", "```bash\necho \"hello\"\n```\n"),
+				text("> ", "text"),
 			},
 		},
 		{
-			name: "nested blockquote with html comment block",
-			input: joinLines(
-				"> text",
-				"> > <!--",
-				"> > comment",
-				"> > -->",
-				"> text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindHTMLComment, "> > ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "> ", "text"},
-			},
-		},
-		{
-			name: "list with fenced code block",
+			name: "FencedCode/list/dash",
 			input: joinLines(
 				"- text",
 				"- ```bash",
@@ -400,37 +306,14 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"  ```",
 				"- text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "- ", "text\n"},
-				{internal.BlockKindFencedCode, "- ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "- ", "text"},
+			want: []wantBlock{
+				text("- ", "text\n"),
+				code("- ", "```bash\necho \"hello\"\n```\n"),
+				text("- ", "text"),
 			},
 		},
 		{
-			name: "list with html comment block",
-			input: joinLines(
-				"- text",
-				"- <!--",
-				"  comment",
-				"  -->",
-				"- text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "- ", "text\n"},
-				{internal.BlockKindHTMLComment, "- ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "- ", "text"},
-			},
-		},
-		{
-			name: "nested list with fenced code block",
+			name: "FencedCode/list/dash/nested",
 			input: joinLines(
 				"- text",
 				"  - ```bash",
@@ -438,37 +321,74 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"    ```",
 				"- text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "- ", "text\n"},
-				{internal.BlockKindFencedCode, "  - ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "- ", "text"},
+			want: []wantBlock{
+				text("- ", "text\n"),
+				code("  - ", "```bash\necho \"hello\"\n```\n"),
+				text("- ", "text"),
 			},
 		},
 		{
-			name: "nested list with html comment block",
+			name: "FencedCode/list/plus-tilde-fence",
+			input: joinLines(
+				"+ text",
+				"+ ~~~bash",
+				"  echo \"hello\"",
+				"  ~~~",
+				"+ text",
+			),
+			want: []wantBlock{
+				text("+ ", "text\n"),
+				code("+ ", "~~~bash\necho \"hello\"\n~~~\n"),
+				text("+ ", "text"),
+			},
+		},
+		{
+			name: "FencedCode/list/ordered",
+			input: joinLines(
+				"1. text",
+				"2. ```bash",
+				"   echo \"hello\"",
+				"   ```",
+				"3. text",
+			),
+			want: []wantBlock{
+				text("1. ", "text\n"),
+				code("2. ", "```bash\necho \"hello\"\n```\n"),
+				text("3. ", "text"),
+			},
+		},
+		{
+			name: "FencedCode/list/ordered/nested",
+			input: joinLines(
+				"1. text",
+				"   1. ```bash",
+				"      echo \"hello\"",
+				"      ```",
+				"2. text",
+			),
+			want: []wantBlock{
+				text("1. ", "text\n"),
+				code("   1. ", "```bash\necho \"hello\"\n```\n"),
+				text("2. ", "text"),
+			},
+		},
+		{
+			name: "FencedCode/list/blockquote",
 			input: joinLines(
 				"- text",
-				"  - <!--",
-				"    comment",
-				"    -->",
+				"  > ```bash",
+				"  > echo \"hello\"",
+				"  > ```",
 				"- text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "- ", "text\n"},
-				{internal.BlockKindHTMLComment, "  - ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "- ", "text"},
+			want: []wantBlock{
+				text("- ", "text\n"),
+				code("  > ", "```bash\necho \"hello\"\n```\n"),
+				text("- ", "text"),
 			},
 		},
 		{
-			name: "blockquote with nested list fenced code block",
+			name: "FencedCode/blockquote/list-nested",
 			input: joinLines(
 				"> text",
 				"> - item",
@@ -477,171 +397,15 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				">     ```",
 				"> text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindText, "> - ", "item\n"},
-				{internal.BlockKindFencedCode, ">   - ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "> ", "text"},
+			want: []wantBlock{
+				text("> ", "text\n"),
+				text("> - ", "item\n"),
+				code(">   - ", "```bash\necho \"hello\"\n```\n"),
+				text("> ", "text"),
 			},
 		},
 		{
-			name: "blockquote with list html comment block",
-			input: joinLines(
-				"> text",
-				"> - <!--",
-				">   comment",
-				">   -->",
-				"> text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindHTMLComment, "> - ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "> ", "text"},
-			},
-		},
-		{
-			name: "list with blockquote fenced code block",
-			input: joinLines(
-				"- text",
-				"  > ```bash",
-				"  > echo \"hello\"",
-				"  > ```",
-				"- text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "- ", "text\n"},
-				{internal.BlockKindFencedCode, "  > ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "- ", "text"},
-			},
-		},
-		{
-			name: "nested blockquote with list html comment block",
-			input: joinLines(
-				"> text",
-				"> > - <!--",
-				"> >   comment",
-				"> >   -->",
-				"> text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindHTMLComment, "> > - ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "> ", "text"},
-			},
-		},
-		{
-			name: "ordered list with fenced code block",
-			input: joinLines(
-				"1. text",
-				"2. ```bash",
-				"   echo \"hello\"",
-				"   ```",
-				"3. text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "1. ", "text\n"},
-				{internal.BlockKindFencedCode, "2. ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "3. ", "text"},
-			},
-		},
-		{
-			name: "ordered list with html comment block",
-			input: joinLines(
-				"1. text",
-				"2. <!--",
-				"   comment",
-				"   -->",
-				"3. text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "1. ", "text\n"},
-				{internal.BlockKindHTMLComment, "2. ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "3. ", "text"},
-			},
-		},
-		{
-			name: "nested ordered list with fenced code block",
-			input: joinLines(
-				"1. text",
-				"   1. ```bash",
-				"      echo \"hello\"",
-				"      ```",
-				"2. text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "1. ", "text\n"},
-				{internal.BlockKindFencedCode, "   1. ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "2. ", "text"},
-			},
-		},
-		{
-			name: "plus list with tilde fenced code block",
-			input: joinLines(
-				"+ text",
-				"+ ~~~bash",
-				"  echo \"hello\"",
-				"  ~~~",
-				"+ text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "+ ", "text\n"},
-				{internal.BlockKindFencedCode, "+ ", "~~~bash\necho \"hello\"\n~~~\n"},
-				{internal.BlockKindText, "+ ", "text"},
-			},
-		},
-		{
-			name: "star list with html comment block",
-			input: joinLines(
-				"* text",
-				"* <!--",
-				"  comment",
-				"  -->",
-				"* text",
-			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "* ", "text\n"},
-				{internal.BlockKindHTMLComment, "* ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "* ", "text"},
-			},
-		},
-		{
-			name: "blockquote with ordered list fenced code block",
+			name: "FencedCode/blockquote/list-ordered",
 			input: joinLines(
 				"> text",
 				"> 1. ```bash",
@@ -649,18 +413,235 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				">    ```",
 				"> text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "> ", "text\n"},
-				{internal.BlockKindFencedCode, "> 1. ", "```bash\necho \"hello\"\n```\n"},
-				{internal.BlockKindText, "> ", "text"},
+			want: []wantBlock{
+				text("> ", "text\n"),
+				code("> 1. ", "```bash\necho \"hello\"\n```\n"),
+				text("> ", "text"),
+			},
+		},
+
+		// HTMLComment — top-level (CommonMark §4.6 type 2).
+		{
+			name:  "HTMLComment/top-level/inline",
+			input: "text <!-- comment --> text",
+			want: []wantBlock{
+				text("", "text "),
+				comment("", "<!-- comment -->"),
+				text("", " text"),
 			},
 		},
 		{
-			name: "ordered list with blockquote html comment block",
+			name:  "HTMLComment/top-level/inline-multiple",
+			input: "text <!-- comment --><!--\ncomment --> text",
+			want: []wantBlock{
+				text("", "text "),
+				comment("", "<!-- comment -->"),
+				comment("", "<!--\ncomment -->"),
+				text("", " text"),
+			},
+		},
+		{
+			name:  "HTMLComment/top-level/inline-at-line-end",
+			input: "text <!-- comment -->",
+			want: []wantBlock{
+				text("", "text "),
+				comment("", "<!-- comment -->"),
+			},
+		},
+		{
+			name: "HTMLComment/top-level/block",
+			input: joinLines(
+				"text",
+				"<!--",
+				"comment",
+				"-->",
+				"text",
+			),
+			want: []wantBlock{
+				text("", "text\n"),
+				comment("", "<!--\ncomment\n-->\n"),
+				text("", "text"),
+			},
+		},
+		{
+			name:  "HTMLComment/top-level/block-empty",
+			input: "<!---->\n",
+			want: []wantBlock{
+				comment("", "<!---->\n"),
+			},
+		},
+		{
+			name: "HTMLComment/top-level/block-consecutive",
+			input: joinLines(
+				"<!-- a -->",
+				"",
+				"<!-- b -->",
+				"",
+			),
+			want: []wantBlock{
+				comment("", "<!-- a -->\n"),
+				text("", "\n"),
+				comment("", "<!-- b -->\n"),
+			},
+		},
+		{
+			name:  "HTMLComment/top-level/in-heading-line",
+			input: "# Title <!-- comment -->\n",
+			want: []wantBlock{
+				text("", "# Title "),
+				comment("", "<!-- comment -->"),
+				text("", "\n"),
+			},
+		},
+
+		// HTMLComment — inside containers.
+		{
+			name:  "HTMLComment/blockquote/inline-multiple",
+			input: "> text <!-- comment --><!--\n> comment --> text",
+			want: []wantBlock{
+				text("> ", "text "),
+				comment("", "<!-- comment -->"),
+				comment("", "<!--\ncomment -->"),
+				text("> ", " text"),
+			},
+		},
+		{
+			name: "HTMLComment/blockquote/nested/block",
+			input: joinLines(
+				"> text",
+				"> > <!--",
+				"> > comment",
+				"> > -->",
+				"> text",
+			),
+			want: []wantBlock{
+				text("> ", "text\n"),
+				comment("> > ", "<!--\ncomment\n-->\n"),
+				text("> ", "text"),
+			},
+		},
+		{
+			name:  "HTMLComment/list/dash/inline-multiple",
+			input: "- text <!-- comment --><!--\n  comment --> text",
+			want: []wantBlock{
+				text("- ", "text "),
+				comment("", "<!-- comment -->"),
+				comment("", "<!--\ncomment -->"),
+				text("- ", " text"),
+			},
+		},
+		{
+			name:  "HTMLComment/list/dash/nested/inline-multiple",
+			input: "  - text <!-- comment --><!--\n    comment --> text",
+			want: []wantBlock{
+				text("  - ", "text "),
+				comment("", "<!-- comment -->"),
+				comment("", "<!--\ncomment -->"),
+				text("  - ", " text"),
+			},
+		},
+		{
+			name: "HTMLComment/list/dash/block",
+			input: joinLines(
+				"- text",
+				"- <!--",
+				"  comment",
+				"  -->",
+				"- text",
+			),
+			want: []wantBlock{
+				text("- ", "text\n"),
+				comment("- ", "<!--\ncomment\n-->\n"),
+				text("- ", "text"),
+			},
+		},
+		{
+			name: "HTMLComment/list/dash/nested/block",
+			input: joinLines(
+				"- text",
+				"  - <!--",
+				"    comment",
+				"    -->",
+				"- text",
+			),
+			want: []wantBlock{
+				text("- ", "text\n"),
+				comment("  - ", "<!--\ncomment\n-->\n"),
+				text("- ", "text"),
+			},
+		},
+		{
+			name: "HTMLComment/list/star/block",
+			input: joinLines(
+				"* text",
+				"* <!--",
+				"  comment",
+				"  -->",
+				"* text",
+			),
+			want: []wantBlock{
+				text("* ", "text\n"),
+				comment("* ", "<!--\ncomment\n-->\n"),
+				text("* ", "text"),
+			},
+		},
+		{
+			name: "HTMLComment/list/ordered/block",
+			input: joinLines(
+				"1. text",
+				"2. <!--",
+				"   comment",
+				"   -->",
+				"3. text",
+			),
+			want: []wantBlock{
+				text("1. ", "text\n"),
+				comment("2. ", "<!--\ncomment\n-->\n"),
+				text("3. ", "text"),
+			},
+		},
+		{
+			name:  "HTMLComment/blockquote/list/inline-multiple",
+			input: "> - text <!-- comment --><!--\n>   comment --> text",
+			want: []wantBlock{
+				text("> - ", "text "),
+				comment("", "<!-- comment -->"),
+				comment("", "<!--\ncomment -->"),
+				text("> - ", " text"),
+			},
+		},
+		{
+			name: "HTMLComment/blockquote/list/block",
+			input: joinLines(
+				"> text",
+				"> - <!--",
+				">   comment",
+				">   -->",
+				"> text",
+			),
+			want: []wantBlock{
+				text("> ", "text\n"),
+				comment("> - ", "<!--\ncomment\n-->\n"),
+				text("> ", "text"),
+			},
+		},
+		{
+			name: "HTMLComment/blockquote/nested/list/block",
+			input: joinLines(
+				"> text",
+				"> > - <!--",
+				"> >   comment",
+				"> >   -->",
+				"> text",
+			),
+			want: []wantBlock{
+				text("> ", "text\n"),
+				comment("> > - ", "<!--\ncomment\n-->\n"),
+				text("> ", "text"),
+			},
+		},
+		{
+			name: "HTMLComment/list/ordered/blockquote/block",
 			input: joinLines(
 				"1. text",
 				"   > <!--",
@@ -668,14 +649,10 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"   > -->",
 				"2. text",
 			),
-			want: []struct {
-				kind    internal.BlockKind
-				indent  string
-				content string
-			}{
-				{internal.BlockKindText, "1. ", "text\n"},
-				{internal.BlockKindHTMLComment, "   > ", "<!--\ncomment\n-->\n"},
-				{internal.BlockKindText, "2. ", "text"},
+			want: []wantBlock{
+				text("1. ", "text\n"),
+				comment("   > ", "<!--\ncomment\n-->\n"),
+				text("2. ", "text"),
 			},
 		},
 	}
@@ -696,27 +673,9 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				len(blocks),
 			)
 			for i, w := range tt.want {
-				assert.Equal(
-					t,
-					w.kind,
-					blocks[i].Kind(),
-					"block[%d] kind",
-					i,
-				)
-				assert.Equal(
-					t,
-					w.indent,
-					string(blocks[i].Indent()),
-					"block[%d] indent",
-					i,
-				)
-				assert.Equal(
-					t,
-					w.content,
-					string(blocks[i].Content()),
-					"block[%d] content",
-					i,
-				)
+				assert.Equal(t, w.kind, blocks[i].Kind(), "block[%d] kind", i)
+				assert.Equal(t, w.indent, string(blocks[i].Indent()), "block[%d] indent", i)
+				assert.Equal(t, w.content, string(blocks[i].Content()), "block[%d] content", i)
 			}
 		})
 	}
