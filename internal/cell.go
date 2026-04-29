@@ -83,10 +83,47 @@ func Classify(blocks []Block) ([]Cell, error) {
 		case info.IsLitdoc:
 			return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 		default:
-			cells = append(cells, MakeStaticCellFromRaw(string(b.content)))
+			cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
 		}
 	}
 	return cells, nil
+}
+
+func renderStaticBlock(b Block) string {
+	if len(b.indent) == 0 {
+		return string(b.content)
+	}
+
+	lines := bytes.Split(b.content, []byte("\n"))
+	var rendered bytes.Buffer
+	continuationIndent := blockContinuationIndent(b.indent)
+	for i, line := range lines {
+		if i == len(lines)-1 && len(line) == 0 {
+			break
+		}
+		if i > 0 {
+			rendered.WriteByte('\n')
+			if len(line) > 0 {
+				rendered.Write(continuationIndent)
+			}
+		} else {
+			if len(line) > 0 {
+				rendered.Write(b.indent)
+			}
+		}
+		rendered.Write(line)
+	}
+	if bytes.HasSuffix(b.content, []byte("\n")) {
+		rendered.WriteByte('\n')
+	}
+	return rendered.String()
+}
+
+func blockContinuationIndent(indent []byte) []byte {
+	if bytes.HasSuffix(indent, []byte("> ")) {
+		return indent
+	}
+	return bytes.Repeat([]byte(" "), len(indent))
 }
 
 func Execute(cells []Cell) ([]Cell, error) {

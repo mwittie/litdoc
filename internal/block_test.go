@@ -335,6 +335,82 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				{internal.BlockKindText, "> ", "text"},
 			},
 		},
+		{
+			name: "list with fenced code block",
+			input: joinLines(
+				"- text",
+				"- ```bash",
+				"  echo \"hello\"",
+				"  ```",
+				"- text",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "- ", "text\n"},
+				{internal.BlockKindFencedCode, "- ", "```bash\necho \"hello\"\n```\n"},
+				{internal.BlockKindText, "- ", "text"},
+			},
+		},
+		{
+			name: "list with html comment block",
+			input: joinLines(
+				"- text",
+				"- <!--",
+				"  comment",
+				"  -->",
+				"- text",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "- ", "text\n"},
+				{internal.BlockKindHTMLComment, "- ", "<!--\ncomment\n-->\n"},
+				{internal.BlockKindText, "- ", "text"},
+			},
+		},
+		{
+			name: "nested list with fenced code block",
+			input: joinLines(
+				"- text",
+				"  - ```bash",
+				"    echo \"hello\"",
+				"    ```",
+				"- text",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "- ", "text\n"},
+				{internal.BlockKindFencedCode, "  - ", "```bash\necho \"hello\"\n```\n"},
+				{internal.BlockKindText, "- ", "text"},
+			},
+		},
+		{
+			name: "nested list with html comment block",
+			input: joinLines(
+				"- text",
+				"  - <!--",
+				"    comment",
+				"    -->",
+				"- text",
+			),
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "- ", "text\n"},
+				{internal.BlockKindHTMLComment, "  - ", "<!--\ncomment\n-->\n"},
+				{internal.BlockKindText, "- ", "text"},
+			},
+		},
 	}
 
 	for _, tt := range tests {

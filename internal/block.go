@@ -54,7 +54,7 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	var blocks []Block
 	pos := uint32(0)
 
-	collectBlockNodes(root, content, nil, &pos, &blocks)
+	collectBlockNodes(root, content, nil, nil, &pos, &blocks)
 
 	if pos < uint32(len(content)) {
 		blocks = append(blocks, makeBlock(BlockKindText, content[pos:], nil))
@@ -95,21 +95,23 @@ func collectBlockNodes(
 	node *sitter.Node,
 	content []byte,
 	indent []byte,
+	stripPrefix []byte,
 	pos *uint32,
 	blocks *[]Block,
 ) {
 	switch node.Type() {
 	case "document", "section":
 		for i := 0; i < int(node.ChildCount()); i++ {
-			collectBlockNodes(node.Child(i), content, indent, pos, blocks)
+			collectBlockNodes(node.Child(i), content, indent, stripPrefix, pos, blocks)
 		}
 	case "block_quote":
 		childIndent := append(append([]byte(nil), indent...), "> "...)
+		childStripPrefix := append(append([]byte(nil), stripPrefix...), "> "...)
 		for i := 0; i < int(node.ChildCount()); i++ {
 			child := node.Child(i)
 			if child.Type() == "block_quote_marker" {
 				if child.StartByte() > *pos {
-					gap := stripIndent(content[*pos:child.StartByte()], childIndent)
+					gap := stripIndent(content[*pos:child.StartByte()], childStripPrefix)
 					if len(gap) > 0 {
 						*blocks = append(*blocks, makeBlock(BlockKindText, gap, childIndent))
 					}
@@ -117,25 +119,92 @@ func collectBlockNodes(
 				*pos = child.EndByte()
 				continue
 			}
-			collectBlockNodes(child, content, childIndent, pos, blocks)
+			collectBlockNodes(child, content, childIndent, childStripPrefix, pos, blocks)
+		}
+	case "list":
+		for i := 0; i < int(node.ChildCount()); i++ {
+			collectBlockNodes(node.Child(i), content, indent, stripPrefix, pos, blocks)
+		}
+	case "list_item":
+		childIndent, childStripPrefix := listItemIndent(node, content)
+		for i := 0; i < int(node.ChildCount()); i++ {
+			child := node.Child(i)
+			if isListMarker(child) {
+				if child.StartByte() > *pos {
+					gap := stripIndent(content[*pos:child.StartByte()], stripPrefix)
+					if len(gap) > 0 {
+						*blocks = append(*blocks, makeBlock(BlockKindText, gap, indent))
+					}
+				}
+				*pos = child.EndByte()
+				continue
+			}
+			collectBlockNodes(child, content, childIndent, childStripPrefix, pos, blocks)
 		}
 	default:
 		start := node.StartByte()
 		end := node.EndByte()
+		blockIndent := indent
+		blockStripPrefix := stripPrefix
+		linePrefix := linePrefixBefore(content, start)
+		if len(linePrefix) > 0 && !bytes.Equal(linePrefix, indent) {
+			blockIndent = linePrefix
+			blockStripPrefix = linePrefix
+			if isSpaceIndent(linePrefix) {
+				rawLeading := leadingLineSpaces(content[start:end])
+				if len(rawLeading) > 0 {
+					blockIndent = append(append([]byte(nil), linePrefix...), rawLeading...)
+					blockStripPrefix = blockIndent
+				}
+			}
+		}
 
 		if start > *pos {
-			gap := stripIndent(content[*pos:start], indent)
+			gap := stripIndent(content[*pos:start], stripPrefix)
 			if len(gap) > 0 {
 				*blocks = append(*blocks, makeBlock(BlockKindText, gap, indent))
 			}
 		}
 
-		raw := stripIndent(content[start:end], indent)
+		raw := stripIndent(content[start:end], blockStripPrefix)
 		if len(raw) > 0 {
-			*blocks = append(*blocks, makeBlock(blockKind(node, content), raw, indent))
+			*blocks = append(*blocks, makeBlock(blockKind(node, content), raw, blockIndent))
 		}
 		*pos = end
 	}
+}
+
+func listItemIndent(node *sitter.Node, content []byte) ([]byte, []byte) {
+	for i := 0; i < int(node.ChildCount()); i++ {
+		child := node.Child(i)
+		if !isListMarker(child) {
+			continue
+		}
+		linePrefix := linePrefixBefore(content, child.StartByte())
+		marker := content[child.StartByte():child.EndByte()]
+		indent := append(append([]byte(nil), linePrefix...), marker...)
+		stripPrefix := append(append([]byte(nil), linePrefix...), bytes.Repeat([]byte(" "), len(marker))...)
+		return indent, stripPrefix
+	}
+	return nil, nil
+}
+
+func isListMarker(node *sitter.Node) bool {
+	return bytes.HasPrefix([]byte(node.Type()), []byte("list_marker_"))
+}
+
+func linePrefixBefore(content []byte, pos uint32) []byte {
+	lineStart := bytes.LastIndexByte(content[:pos], '\n') + 1
+	return content[lineStart:pos]
+}
+
+func leadingLineSpaces(content []byte) []byte {
+	end := bytes.IndexByte(content, '\n')
+	if end < 0 {
+		end = len(content)
+	}
+	line := content[:end]
+	return line[:len(line)-len(bytes.TrimLeft(line, " "))]
 }
 
 func stripIndent(content, indent []byte) []byte {
@@ -148,11 +217,25 @@ func stripIndent(content, indent []byte) []byte {
 		switch {
 		case bytes.HasPrefix(line, indent):
 			lines[i] = bytes.TrimPrefix(line, indent)
+		case isSpaceIndent(indent):
+			lines[i] = trimSpaceIndent(line, len(indent))
 		case len(parentIndent) > 0 && bytes.Equal(line, parentIndent):
 			lines[i] = nil
 		}
 	}
 	return bytes.Join(lines, []byte("\n"))
+}
+
+func isSpaceIndent(indent []byte) bool {
+	return len(bytes.Trim(indent, " ")) == 0
+}
+
+func trimSpaceIndent(line []byte, width int) []byte {
+	i := 0
+	for i < len(line) && i < width && line[i] == ' ' {
+		i++
+	}
+	return line[i:]
 }
 
 func quoteParentIndent(indent []byte) []byte {
