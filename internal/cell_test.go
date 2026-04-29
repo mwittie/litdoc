@@ -67,7 +67,12 @@ func TestParseInfoString(t *testing.T) {
 			name: "fenced code without litdoc",
 			block: internal.MakeBlock(
 				internal.BlockKindFencedCode,
-				"```bash\necho hello\n```\n",
+				joinLines(
+					"```bash",
+					"echo hello",
+					"```",
+					"",
+				),
 				"",
 				false,
 			),
@@ -77,7 +82,12 @@ func TestParseInfoString(t *testing.T) {
 			name: "fenced code with litdoc",
 			block: internal.MakeBlock(
 				internal.BlockKindFencedCode,
-				"```bash | litdoc\necho hello\n```\n",
+				joinLines(
+					"```bash | litdoc",
+					"echo hello",
+					"```",
+					"",
+				),
 				"",
 				false,
 			),
@@ -87,7 +97,12 @@ func TestParseInfoString(t *testing.T) {
 			name: "html comment with litdoc",
 			block: internal.MakeBlock(
 				internal.BlockKindHTMLComment,
-				"<!-- bash | litdoc\necho hello\n-->\n",
+				joinLines(
+					"<!-- bash | litdoc",
+					"echo hello",
+					"-->",
+					"",
+				),
 				"",
 				false,
 			),
@@ -105,7 +120,12 @@ func TestParseInfoString(t *testing.T) {
 
 func TestMakeBashCellFromRaw(t *testing.T) {
 	// given
-	code := "```bash\necho hello\n```\n"
+	code := joinLines(
+		"```bash",
+		"echo hello",
+		"```",
+		"",
+	)
 
 	// when
 	gotCell := internal.MakeBashCellFromRaw(code, "")
@@ -118,7 +138,12 @@ func TestMakeBashCellFromRaw(t *testing.T) {
 
 func TestBashCellExecute(t *testing.T) {
 	// given
-	fencedCode := "```bash\necho hello\n```\n"
+	fencedCode := joinLines(
+		"```bash",
+		"echo hello",
+		"```",
+		"",
+	)
 	cell := internal.MakeBashCellFromRaw(fencedCode, "")
 
 	// when
@@ -134,7 +159,12 @@ func TestBashCellExecute(t *testing.T) {
 func TestBashCellRender(t *testing.T) {
 	t.Run("without output", func(t *testing.T) {
 		// given
-		code := "```bash\necho hello\n```\n"
+		code := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+			"",
+		)
 		cell := internal.MakeBashCellFromRaw(code, "")
 
 		// when
@@ -147,7 +177,12 @@ func TestBashCellRender(t *testing.T) {
 
 	t.Run("with output", func(t *testing.T) {
 		// given
-		fencedCode := "```bash\necho hello\n```\n"
+		fencedCode := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+			"",
+		)
 		cell := internal.MakeBashCellFromRaw(fencedCode, "")
 		executed, err := cell.Execute()
 		require.NoError(t, err)
@@ -231,12 +266,18 @@ func TestComposePreservesInlineHTMLCommentContinuations(t *testing.T) {
 		input string
 	}{
 		{
-			name:  "list",
-			input: "- text <!-- comment --><!--\n  comment --> text",
+			name: "list",
+			input: joinLines(
+				"- text <!-- comment --><!--",
+				"  comment --> text",
+			),
 		},
 		{
-			name:  "blockquote list",
-			input: "> - text <!-- comment --><!--\n>   comment --> text",
+			name: "blockquote list",
+			input: joinLines(
+				"> - text <!-- comment --><!--",
+				">   comment --> text",
+			),
 		},
 	}
 
@@ -282,7 +323,12 @@ func TestClassify(t *testing.T) {
 
 	t.Run("litdoc bash block becomes BashCell", func(t *testing.T) {
 		// given
-		code := "```bash | litdoc\necho hello\n```\n"
+		code := joinLines(
+			"```bash | litdoc",
+			"echo hello",
+			"```",
+			"",
+		)
 		blocks := []internal.Block{bashLitdocBlock(code)}
 
 		// when
@@ -300,7 +346,12 @@ func TestClassify(t *testing.T) {
 
 	t.Run("mixed block types are each classified independently", func(t *testing.T) {
 		// given
-		code := "```bash | litdoc\necho hello\n```\n"
+		code := joinLines(
+			"```bash | litdoc",
+			"echo hello",
+			"```",
+			"",
+		)
 		blocks := []internal.Block{
 			textBlock("before"),
 			bashLitdocBlock(code),

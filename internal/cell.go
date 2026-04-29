@@ -95,7 +95,7 @@ func renderStaticBlock(b Block) string {
 
 	lines := strings.Split(b.content, "\n")
 	var rendered strings.Builder
-	continuationIndent := blockContinuationIndent(b.indent)
+	renderedIndent := renderIndent(b.indent)
 	for i, line := range lines {
 		if i == len(lines)-1 && len(line) == 0 {
 			break
@@ -103,7 +103,7 @@ func renderStaticBlock(b Block) string {
 		if i > 0 {
 			rendered.WriteByte('\n')
 			if len(line) > 0 {
-				rendered.WriteString(continuationIndent)
+				rendered.WriteString(renderedIndent)
 			}
 		} else {
 			if len(line) > 0 && !b.continuation {
@@ -118,7 +118,7 @@ func renderStaticBlock(b Block) string {
 	return rendered.String()
 }
 
-func blockContinuationIndent(indent string) string {
+func renderIndent(indent string) string {
 	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
 		prefixLen := idx + len("> ")
 		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
