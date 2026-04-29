@@ -249,17 +249,6 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				code("   ", "```bash\necho \"hello\"\n```"),
 			},
 		},
-		{
-			name: "FencedCode/top-level/unclosed-runs-to-eof",
-			input: joinLines(
-				"```bash",
-				"echo \"hello\"",
-			),
-			want: []internal.Block{
-				code("", "```bash\necho \"hello\""),
-			},
-		},
-
 		// FencedCode — inside containers.
 		{
 			name: "FencedCode/blockquote",
@@ -674,14 +663,102 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 		})
 	}
 
-	t.Run("invalid-utf8", func(t *testing.T) {
-		// given
-		content := []byte{'#', ' ', 0xe9, '\n'}
+	invalidTests := []struct {
+		name        string
+		input       []byte
+		wantErrText string
+	}{
+		{
+			name:        "invalid-utf8",
+			input:       []byte{'#', ' ', 0xe9, '\n'},
+			wantErrText: "not valid UTF-8",
+		},
+		{
+			name: "FencedCode/top-level/unclosed-runs-to-eof",
+			input: []byte(joinLines(
+				"```bash",
+				"echo \"hello\"",
+			)),
+			wantErrText: "unclosed fenced code block",
+		},
+		{
+			name:        "FencedCode/top-level/opening-line-runs-to-eof",
+			input:       []byte("```bash\n"),
+			wantErrText: "unclosed fenced code block",
+		},
+		{
+			name: "FencedCode/top-level/wrong-closing-fence-char",
+			input: []byte(joinLines(
+				"```bash",
+				"echo \"hello\"",
+				"~~~",
+			)),
+			wantErrText: "unclosed fenced code block",
+		},
+		{
+			name: "FencedCode/top-level/short-closing-fence",
+			input: []byte(joinLines(
+				"````bash",
+				"echo \"hello\"",
+				"```",
+			)),
+			wantErrText: "unclosed fenced code block",
+		},
+		{
+			name: "FencedCode/top-level/closing-fence-with-trailing-text",
+			input: []byte(joinLines(
+				"```bash",
+				"echo \"hello\"",
+				"``` nope",
+			)),
+			wantErrText: "unclosed fenced code block",
+		},
+		{
+			name: "FencedCode/blockquote/unclosed-runs-to-eof",
+			input: []byte(joinLines(
+				"> ```bash",
+				"> echo \"hello\"",
+			)),
+			wantErrText: "unclosed fenced code block",
+		},
+		{
+			name: "HTMLComment/top-level/unclosed-block-runs-to-eof",
+			input: []byte(joinLines(
+				"<!--",
+				"comment",
+			)),
+			wantErrText: "unclosed HTML comment",
+		},
+		{
+			name:        "HTMLComment/top-level/unclosed-single-line-runs-to-eof",
+			input:       []byte("<!-- comment"),
+			wantErrText: "unclosed HTML comment",
+		},
+		{
+			name: "HTMLComment/blockquote/unclosed-runs-to-eof",
+			input: []byte(joinLines(
+				"> <!--",
+				"> comment",
+			)),
+			wantErrText: "unclosed HTML comment",
+		},
+		{
+			name: "HTMLComment/list/unclosed-runs-to-eof",
+			input: []byte(joinLines(
+				"- <!--",
+				"  comment",
+			)),
+			wantErrText: "unclosed HTML comment",
+		},
+	}
 
-		// when
-		_, err := internal.MakeBlocksFromMarkdown(content)
+	for _, tt := range invalidTests {
+		t.Run(tt.name, func(t *testing.T) {
+			// when
+			_, err := internal.MakeBlocksFromMarkdown(tt.input)
 
-		// then
-		require.ErrorContains(t, err, "not valid UTF-8")
-	})
+			// then
+			require.ErrorContains(t, err, tt.wantErrText)
+		})
+	}
 }

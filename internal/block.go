@@ -52,7 +52,10 @@ func (b Block) String() string {
 	return fmt.Sprintf("{%s %q}", b.kind, b.content)
 }
 
-var htmlCommentRe = regexp.MustCompile(`(?s)<!--.*?-->`)
+var (
+	htmlCommentRe  = regexp.MustCompile(`(?s)<!--.*?-->`)
+	openingFenceRe = regexp.MustCompile(`^[ ]{0,3}(` + "`" + `{3,}|~{3,})`)
+)
 
 // MakeBlocksFromMarkdown parses UTF-8 Markdown into Blocks.
 // Block content is stored without its surrounding quote/list prefix; Block.indent
@@ -70,6 +73,9 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	root := tree.BlockTree().RootNode()
 	collector := blockCollector{content: content}
 	collector.collect(root, nil, nil)
+	if collector.err != nil {
+		return nil, collector.err
+	}
 	collector.emitTrailingText()
 
 	return splitInlineHTMLComments(collector.blocks), nil
@@ -116,6 +122,7 @@ type blockCollector struct {
 	content []byte
 	pos     uint32
 	blocks  []Block
+	err     error
 }
 
 // indent and stripPrefix describe the current markdown container.
@@ -125,6 +132,10 @@ type blockCollector struct {
 // content. They differ for list items: "- " is rendered on the first line, but
 // continuation lines are prefixed by spaces.
 func (c *blockCollector) collect(node *sitter.Node, indent, stripPrefix []byte) {
+	if c.err != nil {
+		return
+	}
+
 	switch node.Type() {
 	case markdownNodeDocument, markdownNodeSection, markdownNodeList:
 		c.collectChildren(node, indent, stripPrefix)
@@ -181,7 +192,17 @@ func (c *blockCollector) collectLeaf(node *sitter.Node, indent, stripPrefix []by
 	c.emitTextGap(start, stripPrefix, indent)
 
 	raw := stripIndent(c.content[start:end], blockStripPrefix)
-	c.emitBlock(blockKind(node, c.content), raw, blockIndent)
+	kind := blockKind(node, c.content)
+	if kind == BlockKindFencedCode && !isClosedFencedCodeBlock(raw) {
+		c.err = fmt.Errorf("unclosed fenced code block at byte %d", start)
+		return
+	}
+	if kind == BlockKindHTMLComment && !isClosedHTMLComment(raw) {
+		c.err = fmt.Errorf("unclosed HTML comment at byte %d", start)
+		return
+	}
+
+	c.emitBlock(kind, raw, blockIndent)
 	c.pos = end
 }
 
@@ -246,6 +267,82 @@ func blockPrefixes(
 		blockStripPrefix = rawLeading
 	}
 	return blockIndent, blockStripPrefix
+}
+
+func isClosedFencedCodeBlock(content []byte) bool {
+	openLineEnd := bytes.IndexByte(content, '\n')
+	if openLineEnd < 0 {
+		return false
+	}
+
+	fenceChar, fenceLen, ok := openingFence(content[:openLineEnd])
+	if !ok {
+		return false
+	}
+
+	rest := content[openLineEnd+1:]
+	if len(rest) == 0 {
+		return false
+	}
+	lastLine := lastContentLine(rest)
+	if len(lastLine) == 0 {
+		return false
+	}
+	return isClosingFence(lastLine, fenceChar, fenceLen)
+}
+
+func openingFence(line []byte) (byte, int, bool) {
+	line = bytes.TrimSuffix(line, []byte("\r"))
+	match := openingFenceRe.FindSubmatch(line)
+	if match == nil {
+		return 0, 0, false
+	}
+	fence := match[1]
+	fenceChar := fence[0]
+	return fenceChar, len(fence), true
+}
+
+func lastContentLine(content []byte) []byte {
+	content = bytes.TrimSuffix(content, []byte("\n"))
+	if i := bytes.LastIndexByte(content, '\n'); i >= 0 {
+		return content[i+1:]
+	}
+	return content
+}
+
+func isClosingFence(line []byte, fenceChar byte, fenceLen int) bool {
+	fence, ok := trimFenceLineIndent(line)
+	if !ok || len(fence) < fenceLen {
+		return false
+	}
+
+	closingLen := countLeadingByte(fence, fenceChar)
+	if closingLen < fenceLen {
+		return false
+	}
+
+	return len(bytes.Trim(fence[closingLen:], " \t")) == 0
+}
+
+func trimFenceLineIndent(line []byte) ([]byte, bool) {
+	line = bytes.TrimSuffix(line, []byte("\r"))
+	n := countLeadingByte(line, ' ')
+	if n > 3 {
+		return nil, false
+	}
+	return line[n:], true
+}
+
+func countLeadingByte(content []byte, b byte) int {
+	n := 0
+	for n < len(content) && content[n] == b {
+		n++
+	}
+	return n
+}
+
+func isClosedHTMLComment(content []byte) bool {
+	return bytes.Contains(content, []byte("-->"))
 }
 
 func appendPrefix(prefix []byte, suffix string) []byte {
