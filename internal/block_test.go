@@ -1,7 +1,6 @@
 package internal_test
 
 import (
-	"strings"
 	"testing"
 
 	"litdoc/internal"
@@ -10,23 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func text(indent, content string, continuation bool) internal.Block {
-	return internal.MakeBlock(internal.BlockKindText, content, indent, continuation)
-}
-
-func code(indent, content string, continuation bool) internal.Block {
-	return internal.MakeBlock(internal.BlockKindFencedCode, content, indent, continuation)
-}
-
-func cmnt(indent, content string, continuation bool) internal.Block {
-	return internal.MakeBlock(internal.BlockKindHTMLComment, content, indent, continuation)
-}
-
-func joinLines(lines ...string) string {
-	return strings.Join(lines, "\n")
-}
-
-func TestMakeBlock(t *testing.T) {
+func TestMakeBlockFromRaw(t *testing.T) {
 	// given
 	kind := internal.BlockKindFencedCode
 	content := "```bash\necho hello\n```\n"
@@ -34,7 +17,7 @@ func TestMakeBlock(t *testing.T) {
 	continuation := true
 
 	// when
-	got := internal.MakeBlock(kind, content, indent, continuation)
+	got := internal.MakeBlockFromRaw(kind, content, indent, continuation)
 
 	// then
 	assert.Equal(t, kind, got.Kind())

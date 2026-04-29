@@ -14,8 +14,8 @@ type StaticCell struct {
 	content string
 }
 
-func MakeStaticCellFromRaw(raw string) StaticCell {
-	return StaticCell{content: raw}
+func MakeStaticCellFromRaw(content string) StaticCell {
+	return StaticCell{content: content}
 }
 
 func (t StaticCell) Execute() (Cell, error) {
@@ -47,8 +47,8 @@ func (c BashCell) Render() (string, error) {
 }
 
 type InfoString struct {
-	Lang     string
-	IsLitdoc bool
+	Lang   string
+	Litdoc bool
 }
 
 func ParseInfoString(b Block) InfoString {
@@ -67,8 +67,8 @@ func ParseInfoString(b Block) InfoString {
 	}
 	parts := strings.SplitN(raw, " | ", 2)
 	lang := strings.TrimSpace(parts[0])
-	isLitdoc := len(parts) > 1 && strings.HasPrefix(strings.TrimSpace(parts[1]), "litdoc")
-	return InfoString{Lang: lang, IsLitdoc: isLitdoc}
+	litdoc := len(parts) > 1 && strings.HasPrefix(strings.TrimSpace(parts[1]), "litdoc")
+	return InfoString{Lang: lang, Litdoc: litdoc}
 }
 
 func Classify(blocks []Block) ([]Cell, error) {
@@ -76,10 +76,10 @@ func Classify(blocks []Block) ([]Cell, error) {
 	for _, b := range blocks {
 		info := ParseInfoString(b)
 		switch {
-		case info.IsLitdoc && info.Lang == "bash":
-			cell := MakeBashCellFromRaw(b.content, "")
+		case info.Litdoc && info.Lang == "bash":
+			cell := MakeBashCellFromRaw(renderStaticBlock(b), "")
 			cells = append(cells, cell)
-		case info.IsLitdoc:
+		case info.Litdoc:
 			return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 		default:
 			cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))

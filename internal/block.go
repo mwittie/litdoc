@@ -41,7 +41,12 @@ type Block struct {
 	continuation bool
 }
 
-func MakeBlock(kind BlockKind, content, indent string, continuation bool) Block {
+func MakeBlockFromRaw(
+	kind BlockKind,
+	content string,
+	indent string,
+	continuation bool,
+) Block {
 	return Block{
 		kind:         kind,
 		indent:       indent,
@@ -107,7 +112,7 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 		pos := 0
 		for _, loc := range locs {
 			if loc[0] > pos {
-				result = append(result, MakeBlock(
+				result = append(result, MakeBlockFromRaw(
 					BlockKindText,
 					content[pos:loc[0]],
 					b.indent,
@@ -119,7 +124,7 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 			if !wholeBlock {
 				commentContinuation = b.continuation || loc[0] > 0
 			}
-			result = append(result, MakeBlock(
+			result = append(result, MakeBlockFromRaw(
 				BlockKindHTMLComment,
 				content[loc[0]:loc[1]],
 				b.indent,
@@ -128,7 +133,7 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 			pos = loc[1]
 		}
 		if pos < len(content) {
-			result = append(result, MakeBlock(BlockKindText, content[pos:], b.indent, true))
+			result = append(result, MakeBlockFromRaw(BlockKindText, content[pos:], b.indent, true))
 		}
 	}
 	return result
@@ -245,7 +250,7 @@ func (c *blockCollector) emitBlock(kind BlockKind, raw, indent []byte) {
 	if len(raw) == 0 {
 		return
 	}
-	c.blocks = append(c.blocks, MakeBlock(kind, string(raw), string(indent), false))
+	c.blocks = append(c.blocks, MakeBlockFromRaw(kind, string(raw), string(indent), false))
 }
 
 func blockPrefixes(
