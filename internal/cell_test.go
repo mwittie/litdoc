@@ -57,8 +57,8 @@ func TestParseInfoString(t *testing.T) {
 			name: "text block",
 			block: internal.MakeBlock(
 				internal.BlockKindText,
-				[]byte("hello"),
-				nil,
+				"hello",
+				"",
 			),
 			want: internal.InfoString{},
 		},
@@ -66,8 +66,8 @@ func TestParseInfoString(t *testing.T) {
 			name: "fenced code without litdoc",
 			block: internal.MakeBlock(
 				internal.BlockKindFencedCode,
-				[]byte("```bash\necho hello\n```\n"),
-				nil,
+				"```bash\necho hello\n```\n",
+				"",
 			),
 			want: internal.InfoString{Lang: "bash"},
 		},
@@ -75,8 +75,8 @@ func TestParseInfoString(t *testing.T) {
 			name: "fenced code with litdoc",
 			block: internal.MakeBlock(
 				internal.BlockKindFencedCode,
-				[]byte("```bash | litdoc\necho hello\n```\n"),
-				nil,
+				"```bash | litdoc\necho hello\n```\n",
+				"",
 			),
 			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
 		},
@@ -84,8 +84,8 @@ func TestParseInfoString(t *testing.T) {
 			name: "html comment with litdoc",
 			block: internal.MakeBlock(
 				internal.BlockKindHTMLComment,
-				[]byte("<!-- bash | litdoc\necho hello\n-->\n"),
-				nil,
+				"<!-- bash | litdoc\necho hello\n-->\n",
+				"",
 			),
 			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
 		},
@@ -223,10 +223,10 @@ func TestCompose(t *testing.T) {
 
 func TestClassify(t *testing.T) {
 	textBlock := func(content string) internal.Block {
-		return internal.MakeBlock(internal.BlockKindText, []byte(content), nil)
+		return internal.MakeBlock(internal.BlockKindText, content, "")
 	}
 	bashLitdocBlock := func(content string) internal.Block {
-		return internal.MakeBlock(internal.BlockKindFencedCode, []byte(content), nil)
+		return internal.MakeBlock(internal.BlockKindFencedCode, content, "")
 	}
 
 	t.Run("single text block becomes StaticCell", func(t *testing.T) {
@@ -293,7 +293,7 @@ func TestClassify(t *testing.T) {
 		// given
 		code := "```bash\necho hello\n```\n"
 		blocks := []internal.Block{
-			internal.MakeBlock(internal.BlockKindFencedCode, []byte(code), nil),
+			internal.MakeBlock(internal.BlockKindFencedCode, code, ""),
 		}
 
 		// when

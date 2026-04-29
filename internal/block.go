@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strings"
+	"unicode/utf8"
 
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/smacker/go-tree-sitter/markdown"
@@ -20,19 +22,19 @@ const (
 
 type Block struct {
 	kind    BlockKind
-	indent  []byte
-	content []byte
+	indent  string
+	content string
 }
 
-func MakeBlock(kind BlockKind, content, indent []byte) Block {
+func MakeBlock(kind BlockKind, content, indent string) Block {
 	return Block{kind: kind, indent: indent, content: content}
 }
 
 func (b Block) Kind() BlockKind { return b.kind }
 
-func (b Block) Indent() []byte { return b.indent }
+func (b Block) Indent() string { return b.indent }
 
-func (b Block) Content() []byte { return b.content }
+func (b Block) Content() string { return b.content }
 
 func (b Block) String() string {
 	return fmt.Sprintf("{%s %q}", b.kind, b.content)
@@ -41,6 +43,10 @@ func (b Block) String() string {
 var htmlCommentRe = regexp.MustCompile(`(?s)<!--.*?-->`)
 
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
+	if !utf8.Valid(content) {
+		return nil, fmt.Errorf("markdown content is not valid UTF-8")
+	}
+
 	tree, err := markdown.ParseCtx(context.Background(), nil, content)
 	if err != nil {
 		return nil, fmt.Errorf("parsing markdown: %w", err)
@@ -53,7 +59,7 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	collectBlockNodes(root, content, nil, nil, &pos, &blocks)
 
 	if pos < uint32(len(content)) {
-		blocks = append(blocks, MakeBlock(BlockKindText, content[pos:], nil))
+		blocks = append(blocks, MakeBlock(BlockKindText, string(content[pos:]), ""))
 	}
 
 	return splitInlineHTMLComments(blocks), nil
@@ -67,7 +73,7 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 			continue
 		}
 		content := b.Content()
-		locs := htmlCommentRe.FindAllIndex(content, -1)
+		locs := htmlCommentRe.FindAllStringIndex(content, -1)
 		if len(locs) == 0 {
 			result = append(result, b)
 			continue
@@ -77,7 +83,7 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 			if loc[0] > pos {
 				result = append(result, MakeBlock(BlockKindText, content[pos:loc[0]], b.indent))
 			}
-			commentIndent := []byte(nil)
+			commentIndent := ""
 			if isWholeTextBlock(content, loc) {
 				commentIndent = b.indent
 			}
@@ -91,9 +97,9 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 	return result
 }
 
-func isWholeTextBlock(content []byte, loc []int) bool {
-	return len(bytes.TrimSpace(content[:loc[0]])) == 0 &&
-		len(bytes.TrimSpace(content[loc[1]:])) == 0
+func isWholeTextBlock(content string, loc []int) bool {
+	return len(strings.TrimSpace(content[:loc[0]])) == 0 &&
+		len(strings.TrimSpace(content[loc[1]:])) == 0
 }
 
 func collectBlockNodes(
@@ -118,7 +124,7 @@ func collectBlockNodes(
 				if child.StartByte() > *pos {
 					gap := stripIndent(content[*pos:child.StartByte()], childStripPrefix)
 					if len(gap) > 0 {
-						*blocks = append(*blocks, MakeBlock(BlockKindText, gap, childIndent))
+						*blocks = append(*blocks, MakeBlock(BlockKindText, string(gap), string(childIndent)))
 					}
 				}
 				*pos = child.EndByte()
@@ -138,7 +144,7 @@ func collectBlockNodes(
 				if child.StartByte() > *pos {
 					gap := stripIndent(content[*pos:child.StartByte()], stripPrefix)
 					if len(gap) > 0 {
-						*blocks = append(*blocks, MakeBlock(BlockKindText, gap, indent))
+						*blocks = append(*blocks, MakeBlock(BlockKindText, string(gap), string(indent)))
 					}
 				}
 				*pos = child.EndByte()
@@ -175,13 +181,13 @@ func collectBlockNodes(
 		if start > *pos {
 			gap := stripIndent(content[*pos:start], stripPrefix)
 			if len(gap) > 0 {
-				*blocks = append(*blocks, MakeBlock(BlockKindText, gap, indent))
+				*blocks = append(*blocks, MakeBlock(BlockKindText, string(gap), string(indent)))
 			}
 		}
 
 		raw := stripIndent(content[start:end], blockStripPrefix)
 		if len(raw) > 0 {
-			*blocks = append(*blocks, MakeBlock(blockKind(node, content), raw, blockIndent))
+			*blocks = append(*blocks, MakeBlock(blockKind(node, content), string(raw), string(blockIndent)))
 		}
 		*pos = end
 	}

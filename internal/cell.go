@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 )
@@ -54,21 +53,21 @@ type InfoString struct {
 
 func ParseInfoString(b Block) InfoString {
 	firstLine := b.content
-	if i := bytes.IndexByte(b.content, '\n'); i >= 0 {
+	if i := strings.IndexByte(b.content, '\n'); i >= 0 {
 		firstLine = b.content[:i]
 	}
-	var raw []byte
+	var raw string
 	switch b.kind {
 	case BlockKindFencedCode:
-		raw = bytes.TrimLeft(firstLine, "`~")
+		raw = strings.TrimLeft(firstLine, "`~")
 	case BlockKindHTMLComment:
-		raw = bytes.TrimSpace(bytes.TrimPrefix(firstLine, []byte("<!--")))
+		raw = strings.TrimSpace(strings.TrimPrefix(firstLine, "<!--"))
 	default:
 		return InfoString{}
 	}
-	parts := bytes.SplitN(raw, []byte(" | "), 2)
-	lang := string(bytes.TrimSpace(parts[0]))
-	isLitdoc := len(parts) > 1 && bytes.HasPrefix(bytes.TrimSpace(parts[1]), []byte("litdoc"))
+	parts := strings.SplitN(raw, " | ", 2)
+	lang := strings.TrimSpace(parts[0])
+	isLitdoc := len(parts) > 1 && strings.HasPrefix(strings.TrimSpace(parts[1]), "litdoc")
 	return InfoString{Lang: lang, IsLitdoc: isLitdoc}
 }
 
@@ -78,7 +77,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 		info := ParseInfoString(b)
 		switch {
 		case info.IsLitdoc && info.Lang == "bash":
-			cell := MakeBashCellFromRaw(string(b.content), "")
+			cell := MakeBashCellFromRaw(b.content, "")
 			cells = append(cells, cell)
 		case info.IsLitdoc:
 			return nil, fmt.Errorf("unsupported language: %q", info.Lang)
@@ -91,11 +90,11 @@ func Classify(blocks []Block) ([]Cell, error) {
 
 func renderStaticBlock(b Block) string {
 	if len(b.indent) == 0 {
-		return string(b.content)
+		return b.content
 	}
 
-	lines := bytes.Split(b.content, []byte("\n"))
-	var rendered bytes.Buffer
+	lines := strings.Split(b.content, "\n")
+	var rendered strings.Builder
 	continuationIndent := blockContinuationIndent(b.indent)
 	for i, line := range lines {
 		if i == len(lines)-1 && len(line) == 0 {
@@ -104,26 +103,26 @@ func renderStaticBlock(b Block) string {
 		if i > 0 {
 			rendered.WriteByte('\n')
 			if len(line) > 0 {
-				rendered.Write(continuationIndent)
+				rendered.WriteString(continuationIndent)
 			}
 		} else {
 			if len(line) > 0 {
-				rendered.Write(b.indent)
+				rendered.WriteString(b.indent)
 			}
 		}
-		rendered.Write(line)
+		rendered.WriteString(line)
 	}
-	if bytes.HasSuffix(b.content, []byte("\n")) {
+	if strings.HasSuffix(b.content, "\n") {
 		rendered.WriteByte('\n')
 	}
 	return rendered.String()
 }
 
-func blockContinuationIndent(indent []byte) []byte {
-	if bytes.HasSuffix(indent, []byte("> ")) {
+func blockContinuationIndent(indent string) string {
+	if strings.HasSuffix(indent, "> ") {
 		return indent
 	}
-	return bytes.Repeat([]byte(" "), len(indent))
+	return strings.Repeat(" ", len(indent))
 }
 
 func Execute(cells []Cell) ([]Cell, error) {
