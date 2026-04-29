@@ -231,6 +231,62 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			},
 		},
 		{
+			name:  "blockquote with multiple inline html comments",
+			input: "> text <!-- comment --><!--\n> comment --> text",
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "> ", "text "},
+				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
+				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
+				{internal.BlockKindText, "> ", " text"},
+			},
+		},
+		{
+			name:  "list with multiple inline html comments",
+			input: "- text <!-- comment --><!--\n  comment --> text",
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "- ", "text "},
+				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
+				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
+				{internal.BlockKindText, "- ", " text"},
+			},
+		},
+		{
+			name:  "nested list with multiple inline html comments",
+			input: "  - text <!-- comment --><!--\n    comment --> text",
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "  - ", "text "},
+				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
+				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
+				{internal.BlockKindText, "  - ", " text"},
+			},
+		},
+		{
+			name:  "blockquote list with multiple inline html comments",
+			input: "> - text <!-- comment --><!--\n>   comment --> text",
+			want: []struct {
+				kind    internal.BlockKind
+				indent  string
+				content string
+			}{
+				{internal.BlockKindText, "> - ", "text "},
+				{internal.BlockKindHTMLComment, "", "<!-- comment -->"},
+				{internal.BlockKindHTMLComment, "", "<!--\ncomment -->"},
+				{internal.BlockKindText, "> - ", " text"},
+			},
+		},
+		{
 			name: "html comment block comment",
 			input: joinLines(
 				"text",
