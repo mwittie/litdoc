@@ -74,13 +74,18 @@ func ParseInfoString(b Block) InfoString {
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
 	for _, b := range blocks {
-		info := ParseInfoString(b)
-		switch {
-		case info.Litdoc && info.Lang == "bash":
-			cell := MakeBashCellFromRaw(renderStaticBlock(b), "")
-			cells = append(cells, cell)
-		case info.Litdoc:
-			return nil, fmt.Errorf("unsupported language: %q", info.Lang)
+		switch b.kind {
+		case BlockKindFencedCode, BlockKindHTMLComment:
+			info := ParseInfoString(b)
+			switch {
+			case info.Litdoc && info.Lang == "bash":
+				cell := MakeBashCellFromRaw(renderStaticBlock(b), "")
+				cells = append(cells, cell)
+			case info.Litdoc:
+				return nil, fmt.Errorf("unsupported language: %q", info.Lang)
+			default:
+				cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
+			}
 		default:
 			cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
 		}

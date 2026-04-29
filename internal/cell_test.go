@@ -363,6 +363,27 @@ func TestClassify(t *testing.T) {
 			},
 		},
 		{
+			name: "Text/litdoc-looking-content",
+			blocks: []internal.Block{
+				text("", joinLines(
+					"<!--bash | litdoc",
+					"echo hello",
+					"-->",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "StaticCell", rendered: joinLines(
+						"<!--bash | litdoc",
+						"echo hello",
+						"-->",
+						"",
+					),
+				},
+			},
+		},
+		{
 			name: "FencedCode/non-litdoc/top-level",
 			blocks: []internal.Block{
 				code("", joinLines(
