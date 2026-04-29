@@ -219,6 +219,8 @@ func stripIndent(content, indent []byte) []byte {
 			lines[i] = bytes.TrimPrefix(line, indent)
 		case isSpaceIndent(indent):
 			lines[i] = trimSpaceIndent(line, len(indent))
+		case bytes.Contains(indent, []byte("> ")) && isQuoteOnlyLine(line):
+			lines[i] = nil
 		case len(parentIndent) > 0 && bytes.Equal(line, parentIndent):
 			lines[i] = nil
 		}
@@ -236,6 +238,19 @@ func trimSpaceIndent(line []byte, width int) []byte {
 		i++
 	}
 	return line[i:]
+}
+
+func isQuoteOnlyLine(line []byte) bool {
+	trimmed := bytes.TrimSpace(line)
+	if len(trimmed) == 0 {
+		return false
+	}
+	for _, b := range trimmed {
+		if b != '>' && b != ' ' {
+			return false
+		}
+	}
+	return true
 }
 
 func quoteParentIndent(indent []byte) []byte {
