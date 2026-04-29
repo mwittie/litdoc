@@ -143,10 +143,23 @@ func stripIndent(content, indent []byte) []byte {
 		return content
 	}
 	lines := bytes.Split(content, []byte("\n"))
+	parentIndent := quoteParentIndent(indent)
 	for i, line := range lines {
-		lines[i] = bytes.TrimPrefix(line, indent)
+		switch {
+		case bytes.HasPrefix(line, indent):
+			lines[i] = bytes.TrimPrefix(line, indent)
+		case len(parentIndent) > 0 && bytes.Equal(line, parentIndent):
+			lines[i] = nil
+		}
 	}
 	return bytes.Join(lines, []byte("\n"))
+}
+
+func quoteParentIndent(indent []byte) []byte {
+	if len(indent) < len("> ") || !bytes.HasSuffix(indent, []byte("> ")) {
+		return nil
+	}
+	return indent[:len(indent)-len("> ")]
 }
 
 func blockKind(node *sitter.Node, content []byte) BlockKind {
