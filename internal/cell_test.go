@@ -9,42 +9,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMakeStaticCellFromRaw(t *testing.T) {
-	// given
-	content := "hello"
+func TestStaticCell(t *testing.T) {
+	t.Run("renders raw content", func(t *testing.T) {
+		// given
+		content := "hello"
+		cell := internal.MakeStaticCellFromRaw(content)
 
-	// when
-	gotCell := internal.MakeStaticCellFromRaw(content)
+		// when
+		gotContent, err := cell.Render()
 
-	// then
-	got, err := gotCell.Render()
-	require.NoError(t, err)
-	assert.Equal(t, content, got)
-}
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, content, gotContent)
+	})
 
-func TestStaticCellExecute(t *testing.T) {
-	// given
-	cell := internal.MakeStaticCellFromRaw("hello")
+	t.Run("executes to itself", func(t *testing.T) {
+		// given
+		cell := internal.MakeStaticCellFromRaw("hello")
 
-	// when
-	gotCell, err := cell.Execute()
+		// when
+		gotCell, err := cell.Execute()
 
-	// then
-	require.NoError(t, err)
-	assert.Equal(t, cell, gotCell)
-}
-
-func TestStaticCellRender(t *testing.T) {
-	// given
-	content := "hello"
-	cell := internal.MakeStaticCellFromRaw(content)
-
-	// when
-	gotContent, err := cell.Render()
-
-	// then
-	require.NoError(t, err)
-	assert.Equal(t, content, gotContent)
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, cell, gotCell)
+	})
 }
 
 func TestParseInfoString(t *testing.T) {
@@ -54,36 +43,135 @@ func TestParseInfoString(t *testing.T) {
 		want  internal.InfoString
 	}{
 		{
-			name: "text block",
-			block: internal.MakeBlockFromRaw(
-				internal.BlockKindText,
-				[]byte("hello"),
-			),
-			want: internal.InfoString{},
+			name:  "text block",
+			block: text("", "hello", false),
+			want:  internal.InfoString{},
 		},
 		{
-			name: "fenced code without litdoc",
-			block: internal.MakeBlockFromRaw(
-				internal.BlockKindFencedCode,
-				[]byte("```bash\necho hello\n```\n"),
+			name: "fenced code/backtick/without-litdoc",
+			block: code(
+				"",
+				joinLines(
+					"```bash",
+					"echo hello",
+					"```",
+					"",
+				),
+				false,
 			),
 			want: internal.InfoString{Lang: "bash"},
 		},
 		{
-			name: "fenced code with litdoc",
-			block: internal.MakeBlockFromRaw(
-				internal.BlockKindFencedCode,
-				[]byte("```bash | litdoc\necho hello\n```\n"),
+			name: "fenced code/backtick/with-litdoc",
+			block: code(
+				"",
+				joinLines(
+					"```bash | litdoc",
+					"echo hello",
+					"```",
+					"",
+				),
+				false,
 			),
-			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
+			want: internal.InfoString{Lang: "bash", Litdoc: true},
 		},
 		{
-			name: "html comment with litdoc",
-			block: internal.MakeBlockFromRaw(
-				internal.BlockKindHTMLComment,
-				[]byte("<!-- bash | litdoc\necho hello\n-->\n"),
+			name: "fenced code/tilde/with-litdoc",
+			block: code(
+				"",
+				joinLines(
+					"~~~sh | litdoc",
+					"echo hello",
+					"~~~",
+					"",
+				),
+				false,
 			),
-			want: internal.InfoString{Lang: "bash", IsLitdoc: true},
+			want: internal.InfoString{Lang: "sh", Litdoc: true},
+		},
+		{
+			name: "fenced code/no-info-string",
+			block: code(
+				"",
+				joinLines(
+					"```",
+					"echo hello",
+					"```",
+					"",
+				),
+				false,
+			),
+			want: internal.InfoString{},
+		},
+		{
+			name: "fenced code/trims-language",
+			block: code(
+				"",
+				joinLines(
+					"```  bash  | litdoc",
+					"echo hello",
+					"```",
+					"",
+				),
+				false,
+			),
+			want: internal.InfoString{Lang: "bash", Litdoc: true},
+		},
+		{
+			name: "fenced code/litdoc-prefix",
+			block: code(
+				"",
+				joinLines(
+					"```bash | litdoc-output",
+					"echo hello",
+					"```",
+					"",
+				),
+				false,
+			),
+			want: internal.InfoString{Lang: "bash", Litdoc: true},
+		},
+		{
+			name: "html comment/without-litdoc",
+			block: cmnt(
+				"",
+				joinLines(
+					"<!-- bash",
+					"echo hello",
+					"-->",
+					"",
+				),
+				false,
+			),
+			want: internal.InfoString{Lang: "bash"},
+		},
+		{
+			name: "html comment/with-litdoc",
+			block: cmnt(
+				"",
+				joinLines(
+					"<!-- bash | litdoc",
+					"echo hello",
+					"-->",
+					"",
+				),
+				false,
+			),
+			want: internal.InfoString{Lang: "bash", Litdoc: true},
+		},
+		{
+			name: "html comment/unsupported-litdoc-language",
+			block: cmnt(
+				"",
+				joinLines(
+					"<!-- go | litdoc",
+					"fmt.Println()",
+					"-->",
+					"",
+				),
+				false,
+			),
+			want: internal.InfoString{Lang: "go", Litdoc: true},
 		},
 	}
 
@@ -95,38 +183,15 @@ func TestParseInfoString(t *testing.T) {
 	}
 }
 
-func TestMakeBashCellFromRaw(t *testing.T) {
-	// given
-	code := "```bash\necho hello\n```\n"
-
-	// when
-	gotCell := internal.MakeBashCellFromRaw(code, "")
-
-	// then
-	got, err := gotCell.Render()
-	require.NoError(t, err)
-	assert.Equal(t, code, got)
-}
-
-func TestBashCellExecute(t *testing.T) {
-	// given
-	fencedCode := "```bash\necho hello\n```\n"
-	cell := internal.MakeBashCellFromRaw(fencedCode, "")
-
-	// when
-	gotCell, err := cell.Execute()
-
-	// then
-	require.NoError(t, err)
-	rendered, err := gotCell.Render()
-	require.NoError(t, err)
-	assert.Equal(t, fencedCode, rendered)
-}
-
-func TestBashCellRender(t *testing.T) {
+func TestBashCell(t *testing.T) {
 	t.Run("without output", func(t *testing.T) {
 		// given
-		code := "```bash\necho hello\n```\n"
+		code := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+			"",
+		)
 		cell := internal.MakeBashCellFromRaw(code, "")
 
 		// when
@@ -139,17 +204,40 @@ func TestBashCellRender(t *testing.T) {
 
 	t.Run("with output", func(t *testing.T) {
 		// given
-		fencedCode := "```bash\necho hello\n```\n"
-		cell := internal.MakeBashCellFromRaw(fencedCode, "")
-		executed, err := cell.Execute()
-		require.NoError(t, err)
+		fencedCode := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+		)
+		output := "hello"
+		cell := internal.MakeBashCellFromRaw(fencedCode, output)
 
 		// when
-		gotContent, err := executed.Render()
+		gotContent, err := cell.Render()
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, fencedCode, gotContent)
+		assert.Equal(t, fencedCode+"\n"+output, gotContent)
+	})
+
+	t.Run("executes to itself", func(t *testing.T) {
+		// given
+		fencedCode := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+			"",
+		)
+		cell := internal.MakeBashCellFromRaw(fencedCode, "")
+
+		// when
+		gotCell, err := cell.Execute()
+
+		// then
+		require.NoError(t, err)
+		rendered, err := gotCell.Render()
+		require.NoError(t, err)
+		assert.Equal(t, fencedCode, rendered)
 	})
 }
 
@@ -218,101 +306,293 @@ func TestCompose(t *testing.T) {
 }
 
 func TestClassify(t *testing.T) {
-	textBlock := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
-	}
-	bashLitdocBlock := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(content))
+	type wantCell struct {
+		kind     string
+		rendered string
 	}
 
-	t.Run("single text block becomes StaticCell", func(t *testing.T) {
-		// given
-		blocks := []internal.Block{textBlock("hello")}
+	tests := []struct {
+		name        string
+		blocks      []internal.Block
+		want        []wantCell
+		wantErrText string
+	}{
+		{
+			name: "Text/top-level",
+			blocks: []internal.Block{
+				text("", "hello", false),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "hello"},
+			},
+		},
+		{
+			name: "Text/blockquote/multiline",
+			blocks: []internal.Block{
+				text("> ", "hello, \nworld\n", false),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "> hello, \n> world\n"},
+			},
+		},
+		{
+			name: "Text/list/dash",
+			blocks: []internal.Block{
+				text("- ", "text\ncontinued", false),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "- text\n  continued"},
+			},
+		},
+		{
+			name: "Text/list/ordered",
+			blocks: []internal.Block{
+				text("2. ", "text\ncontinued", false),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "2. text\n   continued"},
+			},
+		},
+		{
+			name: "Text/blockquote/list",
+			blocks: []internal.Block{
+				text("> - ", "text\ncontinued", false),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "> - text\n>   continued"},
+			},
+		},
+		{
+			name: "Text/litdoc-looking-content",
+			blocks: []internal.Block{
+				text("", joinLines(
+					"<!--bash | litdoc",
+					"echo hello",
+					"-->",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "StaticCell", rendered: joinLines(
+						"<!--bash | litdoc",
+						"echo hello",
+						"-->",
+						"",
+					),
+				},
+			},
+		},
+		{
+			name: "FencedCode/non-litdoc/top-level",
+			blocks: []internal.Block{
+				code("", joinLines(
+					"```bash",
+					"echo hello",
+					"```",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "StaticCell", rendered: joinLines(
+						"```bash",
+						"echo hello",
+						"```",
+						"",
+					),
+				},
+			},
+		},
+		{
+			name: "FencedCode/non-litdoc/list",
+			blocks: []internal.Block{
+				code("- ", joinLines(
+					"```bash",
+					"echo hello",
+					"```",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "StaticCell", rendered: joinLines(
+						"- ```bash",
+						"  echo hello",
+						"  ```",
+						"",
+					),
+				},
+			},
+		},
+		{
+			name: "FencedCode/litdoc/bash",
+			blocks: []internal.Block{
+				code("", joinLines(
+					"```bash | litdoc",
+					"echo hello",
+					"```",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "BashCell", rendered: joinLines(
+						"```bash | litdoc",
+						"echo hello",
+						"```",
+						"",
+					),
+				},
+			},
+		},
+		{
+			name: "FencedCode/litdoc/unsupported-language",
+			blocks: []internal.Block{
+				code("", joinLines(
+					"```go | litdoc",
+					"fmt.Println()",
+					"```",
+					"",
+				), false),
+			},
+			wantErrText: "unsupported language",
+		},
+		{
+			name: "HTMLComment/block/list",
+			blocks: []internal.Block{
+				cmnt("- ", joinLines(
+					"<!--",
+					"comment",
+					"-->",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "StaticCell", rendered: joinLines(
+						"- <!--",
+						"  comment",
+						"  -->",
+						"",
+					),
+				},
+			},
+		},
+		{
+			name: "HTMLComment/litdoc/bash",
+			blocks: []internal.Block{
+				cmnt("", joinLines(
+					"<!--bash | litdoc",
+					"echo hello",
+					"-->",
+					"",
+				), false),
+			},
+			want: []wantCell{
+				{
+					kind: "BashCell", rendered: joinLines(
+						"<!--bash | litdoc",
+						"echo hello",
+						"-->",
+						"",
+					),
+				},
+			},
+		},
+		{
+			name: "HTMLComment/inline-continuation/list",
+			blocks: []internal.Block{
+				text("- ", "text ", false),
+				cmnt("- ", "<!-- comment -->", true),
+				cmnt("- ", "<!--\ncomment -->", true),
+				text("- ", " text", true),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "- text "},
+				{kind: "StaticCell", rendered: "<!-- comment -->"},
+				{kind: "StaticCell", rendered: "<!--\n  comment -->"},
+				{kind: "StaticCell", rendered: " text"},
+			},
+		},
+		{
+			name: "HTMLComment/inline-continuation/blockquote-list",
+			blocks: []internal.Block{
+				text("> - ", "text ", false),
+				cmnt("> - ", "<!-- comment -->", true),
+				cmnt("> - ", "<!--\ncomment -->", true),
+				text("> - ", " text", true),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "> - text "},
+				{kind: "StaticCell", rendered: "<!-- comment -->"},
+				{kind: "StaticCell", rendered: "<!--\n>   comment -->"},
+				{kind: "StaticCell", rendered: " text"},
+			},
+		},
+		{
+			name: "Mixed/independent-blocks",
+			blocks: []internal.Block{
+				text("", "before", false),
+				code("", joinLines(
+					"```bash | litdoc",
+					"echo hello",
+					"```",
+					"",
+				), false),
+				text("", "after", false),
+			},
+			want: []wantCell{
+				{kind: "StaticCell", rendered: "before"},
+				{
+					kind: "BashCell", rendered: joinLines(
+						"```bash | litdoc",
+						"echo hello",
+						"```",
+						"",
+					),
+				},
+				{kind: "StaticCell", rendered: "after"},
+			},
+		},
+	}
 
-		// when
-		cells, err := internal.Classify(blocks)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// when
+			cells, err := internal.Classify(tt.blocks)
 
-		// then
-		require.NoError(t, err)
-		require.Len(t, cells, 1)
-		_, ok := cells[0].(internal.StaticCell)
-		require.True(t, ok, "expected StaticCell, got %T", cells[0])
-		got, err := cells[0].Render()
-		require.NoError(t, err)
-		assert.Equal(t, "hello", got)
-	})
+			// then
+			if tt.wantErrText != "" {
+				require.ErrorContains(t, err, tt.wantErrText)
+				return
+			}
 
-	t.Run("litdoc bash block becomes BashCell", func(t *testing.T) {
-		// given
-		code := "```bash | litdoc\necho hello\n```\n"
-		blocks := []internal.Block{bashLitdocBlock(code)}
+			require.NoError(t, err)
+			require.Len(t, cells, len(tt.want))
+			wantComposed := ""
+			for i, w := range tt.want {
+				assert.Equal(t, w.kind, cellKind(cells[i]), "cell[%d] kind", i)
+				rendered, err := cells[i].Render()
+				require.NoError(t, err, "cell[%d] render", i)
+				assert.Equal(t, w.rendered, rendered, "cell[%d] rendered", i)
+				wantComposed += w.rendered
+			}
 
-		// when
-		cells, err := internal.Classify(blocks)
+			gotComposed, err := internal.Compose(cells)
+			require.NoError(t, err)
+			assert.Equal(t, wantComposed, gotComposed)
+		})
+	}
+}
 
-		// then
-		require.NoError(t, err)
-		require.Len(t, cells, 1)
-		_, ok := cells[0].(internal.BashCell)
-		require.True(t, ok, "expected BashCell, got %T", cells[0])
-		rendered, err := cells[0].Render()
-		require.NoError(t, err)
-		assert.Equal(t, code, rendered)
-	})
-
-	t.Run("mixed block types are each classified independently", func(t *testing.T) {
-		// given
-		code := "```bash | litdoc\necho hello\n```\n"
-		blocks := []internal.Block{
-			textBlock("before"),
-			bashLitdocBlock(code),
-			textBlock("after"),
-		}
-
-		// when
-		cells, err := internal.Classify(blocks)
-
-		// then
-		require.NoError(t, err)
-		require.Len(t, cells, 3)
-		rendered0, err := cells[0].Render()
-		require.NoError(t, err)
-		assert.Equal(t, "before", rendered0)
-		_, ok := cells[1].(internal.BashCell)
-		assert.True(t, ok, "expected BashCell, got %T", cells[1])
-		rendered2, err := cells[2].Render()
-		require.NoError(t, err)
-		assert.Equal(t, "after", rendered2)
-	})
-
-	t.Run("non-litdoc fenced code block becomes StaticCell", func(t *testing.T) {
-		// given
-		code := "```bash\necho hello\n```\n"
-		blocks := []internal.Block{
-			internal.MakeBlockFromRaw(internal.BlockKindFencedCode, []byte(code)),
-		}
-
-		// when
-		cells, err := internal.Classify(blocks)
-
-		// then
-		require.NoError(t, err)
-		require.Len(t, cells, 1)
-		rendered, err := cells[0].Render()
-		require.NoError(t, err)
-		assert.Equal(t, code, rendered)
-	})
-
-	t.Run("litdoc block with unsupported language", func(t *testing.T) {
-		// given
-		blocks := []internal.Block{
-			bashLitdocBlock("```go | litdoc\nfmt.Println()\n```\n"),
-		}
-
-		// when
-		_, err := internal.Classify(blocks)
-
-		// then
-		require.ErrorContains(t, err, "unsupported language")
-	})
+func cellKind(cell internal.Cell) string {
+	switch cell.(type) {
+	case internal.StaticCell:
+		return "StaticCell"
+	case internal.BashCell:
+		return "BashCell"
+	default:
+		return "unknown"
+	}
 }
