@@ -1,0 +1,6 @@
+exec litdoc file -w input.md
+! stdout .
+grep '# Hello' input.md
+
+-- input.md --
+# Hello
