@@ -1,0 +1,2 @@
+! exec litdoc file does_not_exist.md
+stderr 'reading source file'
