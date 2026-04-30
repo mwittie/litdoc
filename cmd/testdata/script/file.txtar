@@ -1,0 +1,5 @@
+exec litdoc file input.md
+stdout '# Hello'
+
+-- input.md --
+# Hello

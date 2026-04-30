@@ -1,0 +1,2 @@
+! exec litdoc file
+stderr 'accepts 1 arg'
