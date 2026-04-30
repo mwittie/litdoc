@@ -20,24 +20,12 @@ const (
 	BlockKindHTMLComment BlockKind = "html_comment"
 )
 
-const (
-	markdownNodeDocument         = "document"
-	markdownNodeSection          = "section"
-	markdownNodeBlockQuote       = "block_quote"
-	markdownNodeBlockQuoteMarker = "block_quote_marker"
-	markdownNodeList             = "list"
-	markdownNodeListItem         = "list_item"
-	markdownNodeFencedCodeBlock  = "fenced_code_block"
-	markdownNodeHTMLBlock        = "html_block"
-	markdownListMarkerPrefix     = "list_marker_"
-)
-
 type Block struct {
-	kind    BlockKind
+	kind BlockKind
+	// indent characters potentially nested blockquotes and lists
 	indent  string
 	content string
-	// continuation blocks keep their container indent for embedded newlines,
-	// but do not render that indent before their first line.
+	// continuation when preceding block is on the smame line
 	continuation bool
 }
 
@@ -67,14 +55,6 @@ func (b Block) String() string {
 	return fmt.Sprintf("{%s %q}", b.kind, b.content)
 }
 
-var (
-	htmlCommentRe  = regexp.MustCompile(`(?s)<!--.*?-->`)
-	openingFenceRe = regexp.MustCompile(`^[ ]{0,3}(` + "`" + `{3,}|~{3,})`)
-)
-
-// MakeBlocksFromMarkdown parses UTF-8 Markdown into Blocks.
-// Block content is stored without its surrounding quote/list prefix; Block.indent
-// stores the prefix needed to render that Block.content back into the same container.
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	if !utf8.Valid(content) {
 		return nil, fmt.Errorf("markdown content is not valid UTF-8")
@@ -91,57 +71,10 @@ func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
 	if collector.err != nil {
 		return nil, collector.err
 	}
-	collector.emitTrailingText()
+	collector.appendTrailingText()
 
+	// inline comments come in a text block. Split them out in a linear pass.
 	return splitInlineHTMLComments(collector.blocks), nil
-}
-
-func splitInlineHTMLComments(blocks []Block) []Block {
-	result := make([]Block, 0, len(blocks))
-	for _, b := range blocks {
-		if b.Kind() != BlockKindText {
-			result = append(result, b)
-			continue
-		}
-		content := b.Content()
-		locs := htmlCommentRe.FindAllStringIndex(content, -1)
-		if len(locs) == 0 {
-			result = append(result, b)
-			continue
-		}
-		pos := 0
-		for _, loc := range locs {
-			if loc[0] > pos {
-				result = append(result, MakeBlockFromRaw(
-					BlockKindText,
-					content[pos:loc[0]],
-					b.indent,
-					b.continuation || pos > 0,
-				))
-			}
-			wholeBlock := isWholeTextBlock(content, loc)
-			commentContinuation := b.continuation
-			if !wholeBlock {
-				commentContinuation = b.continuation || loc[0] > 0
-			}
-			result = append(result, MakeBlockFromRaw(
-				BlockKindHTMLComment,
-				content[loc[0]:loc[1]],
-				b.indent,
-				commentContinuation,
-			))
-			pos = loc[1]
-		}
-		if pos < len(content) {
-			result = append(result, MakeBlockFromRaw(BlockKindText, content[pos:], b.indent, true))
-		}
-	}
-	return result
-}
-
-func isWholeTextBlock(content string, loc []int) bool {
-	return len(strings.TrimSpace(content[:loc[0]])) == 0 &&
-		len(strings.TrimSpace(content[loc[1]:])) == 0
 }
 
 type blockCollector struct {
@@ -151,23 +84,17 @@ type blockCollector struct {
 	err     error
 }
 
-// indent and stripPrefix describe the current markdown container.
-//
-// indent is the prefix used when rendering a Block back into its container.
-// stripPrefix is the source prefix removed from every line before storing block
-// content. They differ for list items: "- " is rendered on the first line, but
-// continuation lines are prefixed by spaces.
 func (c *blockCollector) collect(node *sitter.Node, indent, stripPrefix []byte) {
 	if c.err != nil {
 		return
 	}
 
 	switch node.Type() {
-	case markdownNodeDocument, markdownNodeSection, markdownNodeList:
+	case "document", "section", "list":
 		c.collectChildren(node, indent, stripPrefix)
-	case markdownNodeBlockQuote:
+	case "block_quote":
 		c.collectBlockQuote(node, indent, stripPrefix)
-	case markdownNodeListItem:
+	case "list_item":
 		c.collectListItem(node, indent, stripPrefix)
 	default:
 		c.collectLeaf(node, indent, stripPrefix)
@@ -182,14 +109,15 @@ func (c *blockCollector) collectChildren(node *sitter.Node, indent, stripPrefix 
 
 func (c *blockCollector) collectBlockQuote(
 	node *sitter.Node,
-	indent, stripPrefix []byte,
+	indent []byte,
+	stripPrefix []byte,
 ) {
-	childIndent := appendPrefix(indent, "> ")
-	childStripPrefix := appendPrefix(stripPrefix, "> ")
+	childIndent := concatenate(indent, []byte("> "))
+	childStripPrefix := concatenate(stripPrefix, []byte("> "))
 	for i := 0; i < int(node.ChildCount()); i++ {
 		child := node.Child(i)
-		if child.Type() == markdownNodeBlockQuoteMarker {
-			c.emitTextGap(child.StartByte(), childStripPrefix, childIndent)
+		if child.Type() == "block_quote_marker" {
+			c.appendTextGap(child.StartByte(), childStripPrefix, childIndent)
 			c.pos = child.EndByte()
 			continue
 		}
@@ -202,7 +130,7 @@ func (c *blockCollector) collectListItem(node *sitter.Node, indent, stripPrefix 
 	for i := 0; i < int(node.ChildCount()); i++ {
 		child := node.Child(i)
 		if isListMarker(child) {
-			c.emitTextGap(child.StartByte(), stripPrefix, indent)
+			c.appendTextGap(child.StartByte(), stripPrefix, indent)
 			c.pos = child.EndByte()
 			continue
 		}
@@ -215,7 +143,7 @@ func (c *blockCollector) collectLeaf(node *sitter.Node, indent, stripPrefix []by
 	end := node.EndByte()
 	blockIndent, blockStripPrefix := blockPrefixes(node, c.content, indent, stripPrefix)
 
-	c.emitTextGap(start, stripPrefix, indent)
+	c.appendTextGap(start, stripPrefix, indent)
 
 	raw := stripIndent(c.content[start:end], blockStripPrefix)
 	kind := blockKind(node, c.content)
@@ -228,29 +156,72 @@ func (c *blockCollector) collectLeaf(node *sitter.Node, indent, stripPrefix []by
 		return
 	}
 
-	c.emitBlock(kind, raw, blockIndent)
+	c.appendBlock(kind, raw, blockIndent)
 	c.pos = end
 }
 
-func (c *blockCollector) emitTrailingText() {
+func (c *blockCollector) appendTrailingText() {
 	if c.pos < uint32(len(c.content)) {
-		c.emitBlock(BlockKindText, c.content[c.pos:], nil)
+		c.appendBlock(BlockKindText, c.content[c.pos:], nil)
 	}
 }
 
-func (c *blockCollector) emitTextGap(end uint32, stripPrefix, indent []byte) {
+func (c *blockCollector) appendTextGap(end uint32, stripPrefix, indent []byte) {
 	if end <= c.pos {
 		return
 	}
 	gap := stripIndent(c.content[c.pos:end], stripPrefix)
-	c.emitBlock(BlockKindText, gap, indent)
+	c.appendBlock(BlockKindText, gap, indent)
 }
 
-func (c *blockCollector) emitBlock(kind BlockKind, raw, indent []byte) {
+func (c *blockCollector) appendBlock(kind BlockKind, raw, indent []byte) {
 	if len(raw) == 0 {
 		return
 	}
+	if kind == BlockKindText && isBlockQuoteOnlyIndent(indent) && !bytes.Contains(raw, []byte("<!--")) {
+		c.appendBlockQuoteText(raw, indent)
+		return
+	}
 	c.blocks = append(c.blocks, MakeBlockFromRaw(kind, string(raw), string(indent), false))
+}
+
+func (c *blockCollector) appendBlockQuoteText(raw, indent []byte) {
+	for len(raw) > 0 {
+		lineEnd := bytes.IndexByte(raw, '\n')
+		if lineEnd < 0 {
+			c.blocks = append(c.blocks, MakeBlockFromRaw(
+				BlockKindText,
+				string(raw),
+				string(indent),
+				false,
+			))
+			return
+		}
+		lineEnd++
+		c.blocks = append(c.blocks, MakeBlockFromRaw(
+			BlockKindText,
+			string(raw[:lineEnd]),
+			string(indent),
+			false,
+		))
+		raw = raw[lineEnd:]
+	}
+}
+
+func isBlockQuoteOnlyIndent(indent []byte) bool {
+	if !bytes.Contains(indent, []byte("> ")) {
+		return false
+	}
+	for len(indent) > 0 {
+		for len(indent) > 0 && indent[0] == ' ' {
+			indent = indent[1:]
+		}
+		if !bytes.HasPrefix(indent, []byte("> ")) {
+			return false
+		}
+		indent = indent[len("> "):]
+	}
+	return true
 }
 
 func blockPrefixes(
@@ -281,7 +252,7 @@ func blockPrefixes(
 		return blockIndent, blockStripPrefix
 	}
 
-	if node.Type() != markdownNodeFencedCodeBlock || len(indent) > 0 {
+	if node.Type() != "fenced_code_block" || len(indent) > 0 {
 		return blockIndent, blockStripPrefix
 	}
 
@@ -316,6 +287,8 @@ func isClosedFencedCodeBlock(content []byte) bool {
 	}
 	return isClosingFence(lastLine, fenceChar, fenceLen)
 }
+
+var openingFenceRe = regexp.MustCompile(`^[ ]{0,3}(` + "`" + `{3,}|~{3,})`)
 
 func openingFence(line []byte) (byte, int, bool) {
 	line = bytes.TrimSuffix(line, []byte("\r"))
@@ -371,10 +344,10 @@ func isClosedHTMLComment(content []byte) bool {
 	return bytes.Contains(content, []byte("-->"))
 }
 
-func appendPrefix(prefix []byte, suffix string) []byte {
-	result := make([]byte, 0, len(prefix)+len(suffix))
-	result = append(result, prefix...)
-	result = append(result, suffix...)
+func concatenate(left, right []byte) []byte {
+	result := make([]byte, 0, len(left)+len(right))
+	result = append(result, left...)
+	result = append(result, right...)
 	return result
 }
 
@@ -397,7 +370,7 @@ func listItemPrefixes(node *sitter.Node, content []byte) ([]byte, []byte) {
 }
 
 func isListMarker(node *sitter.Node) bool {
-	return strings.HasPrefix(node.Type(), markdownListMarkerPrefix)
+	return strings.HasPrefix(node.Type(), "list_marker_")
 }
 
 func linePrefixBefore(content []byte, pos uint32) []byte {
@@ -472,9 +445,9 @@ func quoteParentIndent(indent []byte) []byte {
 
 func blockKind(node *sitter.Node, content []byte) BlockKind {
 	switch node.Type() {
-	case markdownNodeFencedCodeBlock:
+	case "fenced_code_block":
 		return BlockKindFencedCode
-	case markdownNodeHTMLBlock:
+	case "html_block":
 		if bytes.HasPrefix(content[node.StartByte():node.EndByte()], []byte("<!--")) {
 			return BlockKindHTMLComment
 		}
@@ -482,4 +455,60 @@ func blockKind(node *sitter.Node, content []byte) BlockKind {
 	default:
 		return BlockKindText
 	}
+}
+
+var htmlCommentRe = regexp.MustCompile(`(?s)<!--.*?-->`)
+
+func splitInlineHTMLComments(blocks []Block) []Block {
+	result := make([]Block, 0, len(blocks))
+	for _, b := range blocks {
+		if b.Kind() != BlockKindText {
+			result = append(result, b)
+			continue
+		}
+		content := b.Content()
+		locs := htmlCommentRe.FindAllStringIndex(content, -1)
+		if len(locs) == 0 {
+			result = append(result, b)
+			continue
+		}
+		pos := 0
+		for _, loc := range locs {
+			if loc[0] > pos {
+				result = append(
+					result,
+					MakeBlockFromRaw(
+						BlockKindText,
+						content[pos:loc[0]],
+						b.indent,
+						b.continuation || pos > 0,
+					),
+				)
+			}
+			wholeBlock := isWholeTextBlock(content, loc)
+			commentContinuation := b.continuation
+			if !wholeBlock {
+				commentContinuation = b.continuation || loc[0] > 0
+			}
+			result = append(result, MakeBlockFromRaw(
+				BlockKindHTMLComment,
+				content[loc[0]:loc[1]],
+				b.indent,
+				commentContinuation,
+			))
+			pos = loc[1]
+		}
+		if pos < len(content) {
+			result = append(
+				result,
+				MakeBlockFromRaw(BlockKindText, content[pos:], b.indent, true),
+			)
+		}
+	}
+	return result
+}
+
+func isWholeTextBlock(content string, loc []int) bool {
+	return len(strings.TrimSpace(content[:loc[0]])) == 0 &&
+		len(strings.TrimSpace(content[loc[1]:])) == 0
 }

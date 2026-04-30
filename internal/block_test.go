@@ -120,7 +120,8 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				"> again",
 			),
 			want: []internal.Block{
-				text("> ", "hello, \nworld\n", false),
+				text("> ", "hello, \n", false),
+				text("> ", "world\n", false),
 				text("> ", "\n", false),
 				text("> ", "again", false),
 			},

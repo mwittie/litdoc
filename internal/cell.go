@@ -71,6 +71,7 @@ func ParseInfoString(b Block) InfoString {
 	return InfoString{Lang: lang, Litdoc: litdoc}
 }
 
+// Classify todo: review this function
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
 	for _, b := range blocks {
