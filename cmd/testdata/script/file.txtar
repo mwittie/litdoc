@@ -1,5 +1,4 @@
-stdin input.md
-exec litdoc file
+exec litdoc file input.md
 stdout '# Hello'
 
 -- input.md --
