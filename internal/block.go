@@ -112,6 +112,11 @@ func (c *blockCollector) collectBlockQuote(
 	indent []byte,
 	stripPrefix []byte,
 ) {
+	c.appendTextGap(node.StartByte(), stripPrefix, indent)
+	if c.pos < node.StartByte() {
+		c.pos = node.StartByte()
+	}
+
 	childIndent := concatenate(indent, []byte("> "))
 	childStripPrefix := concatenate(stripPrefix, []byte("> "))
 	for i := 0; i < int(node.ChildCount()); i++ {

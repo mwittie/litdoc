@@ -29,7 +29,13 @@ func (o Output) Render(indent string) string {
 		return "\n" + OutputBeginMarker + "\n" + o.content + "\n" + OutputEndMarker + "\n"
 	}
 	var buf strings.Builder
-	buf.WriteString("\n" + indent + OutputBeginMarker + "\n")
+	if blankLineIndent := renderBlankLineIndent(indent); blankLineIndent != "" {
+		buf.WriteString(blankLineIndent)
+		buf.WriteByte('\n')
+	} else {
+		buf.WriteByte('\n')
+	}
+	buf.WriteString(indent + OutputBeginMarker + "\n")
 	for _, line := range strings.Split(o.content, "\n") {
 		buf.WriteString(indent + line + "\n")
 	}

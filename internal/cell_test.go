@@ -448,6 +448,34 @@ func TestClassify(t *testing.T) {
 			},
 		},
 		{
+			name: "FencedCode/litdoc/bash/blockquote-with-output",
+			blocks: []internal.Block{
+				code("> ", joinLines(
+					"```bash | litdoc",
+					"echo hello",
+					"```",
+					"",
+				), false),
+				text("> ", "\n", false),
+				cmnt("> ", internal.OutputBeginMarker, false),
+				text("> ", "hello\n", false),
+				cmnt("> ", internal.OutputEndMarker, false),
+			},
+			want: []wantCell{
+				{
+					kind: "BashCell", rendered: joinLines(
+						"> ```bash | litdoc",
+						"> echo hello",
+						"> ```",
+						">",
+						"> "+internal.OutputBeginMarker,
+						"> hello",
+						"> "+internal.OutputEndMarker+"\n",
+					),
+				},
+			},
+		},
+		{
 			name: "FencedCode/litdoc/unsupported-language",
 			blocks: []internal.Block{
 				code("", joinLines(

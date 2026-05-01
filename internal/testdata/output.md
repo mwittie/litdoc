@@ -46,7 +46,7 @@ echo "something to run"
 output
 <!-- END LITDOC OUTPUT -->
 
-- Fenced code block with previously generate output
+- Fenced code block with previously generated output
 
 ```bash | litdoc
 echo "hello, world"
@@ -65,3 +65,23 @@ output
   <!-- BEGIN LITDOC OUTPUT -->
   output
   <!-- END LITDOC OUTPUT -->
+
+- Indented code block with previously generated output
+
+  ```bash | litdoc
+  echo "hello, world"
+  ```
+
+  <!-- BEGIN LITDOC OUTPUT -->
+  output
+  <!-- END LITDOC OUTPUT -->
+
+> Block quoted fenced code block with previously generated output
+>
+> ```bash | litdoc
+> echo "hello, world"
+> ```
+>
+> <!-- BEGIN LITDOC OUTPUT -->
+> output
+> <!-- END LITDOC OUTPUT -->

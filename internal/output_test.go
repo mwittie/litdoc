@@ -90,6 +90,17 @@ func TestOutput_Render(t *testing.T) {
 				"  "+internal.OutputEndMarker+"\n",
 			),
 		},
+		{
+			"blockquote content",
+			"hello\n",
+			"> ",
+			joinLines(
+				">",
+				"> "+internal.OutputBeginMarker,
+				"> hello",
+				"> "+internal.OutputEndMarker+"\n",
+			),
+		},
 	}
 
 	for _, tt := range tests {

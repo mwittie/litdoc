@@ -119,19 +119,22 @@ func renderStaticBlock(b Block) string {
 	lines := strings.Split(b.content, "\n")
 	var rendered strings.Builder
 	renderedIndent := renderIndent(b.indent)
+	blankLineIndent := renderBlankLineIndent(b.indent)
 	for i, line := range lines {
 		if i == len(lines)-1 && len(line) == 0 {
 			break
 		}
 		if i > 0 {
 			rendered.WriteByte('\n')
-			if len(line) > 0 {
-				rendered.WriteString(renderedIndent)
-			}
-		} else {
-			if len(line) > 0 && !b.continuation {
-				rendered.WriteString(b.indent)
-			}
+		}
+		if len(line) == 0 {
+			rendered.WriteString(blankLineIndent)
+			continue
+		}
+		if i > 0 {
+			rendered.WriteString(renderedIndent)
+		} else if !b.continuation {
+			rendered.WriteString(b.indent)
 		}
 		rendered.WriteString(line)
 	}
@@ -139,6 +142,13 @@ func renderStaticBlock(b Block) string {
 		rendered.WriteByte('\n')
 	}
 	return rendered.String()
+}
+
+func renderBlankLineIndent(indent string) string {
+	if idx := strings.LastIndex(indent, ">"); idx >= 0 {
+		return indent[:idx+1]
+	}
+	return ""
 }
 
 func renderIndent(indent string) string {
