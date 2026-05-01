@@ -19,7 +19,7 @@
           shellHook = ''
             export HOME=$(mktemp -d)
             export GOPATH=$HOME/go
-            export GOCACHE=$HOME/.cache/go-build
+            export GOCACHE=$PWD/.go-cache
             export SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
             export NIX_SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
           '';

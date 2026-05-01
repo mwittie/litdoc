@@ -1,3 +1,5 @@
+GO ?= go
+
 .PHONY: pre-pr
 pre-pr: clean mock fmt-check vet test
 
@@ -16,7 +18,7 @@ fmt-check:
 
 .PHONY: vet
 vet:
-	@go vet ./...
+	@$(GO) vet ./...
 
 .PHONY: mock
 mock:
@@ -27,17 +29,24 @@ mock-clean:
 	@find . \( -name '*_mock_test.go' -o -name '*_mock.go' \) -not -path './vendor/*' -delete
 
 GO_FILES := $(shell find . -name '*.go' -not -path './vendor/*')
-GOCACHE ?= /tmp/litdoc-go-build
+GOCACHE ?= $(CURDIR)/.go-cache
 
-bin/litdoc: $(GO_FILES)
-	@GOCACHE=$(GOCACHE) go build -o bin/litdoc .
+vendor: go.mod go.sum
+	@$(GO) mod vendor
+
+bin/litdoc: vendor $(GO_FILES)
+	@GOCACHE=$(GOCACHE) $(GO) build -mod=vendor -o bin/litdoc .
 
 .PHONY: build
 build: bin/litdoc
 
 .PHONY: test
-test:
-	@GOCACHE=$(GOCACHE) go test ./... --count=1
+test: vendor
+	@GOCACHE=$(GOCACHE) $(GO) test -mod=vendor ./... --count=1
+
+.PHONY: vendor-clean
+vendor-clean:
+	@rm -rf vendor/
 
 .PHONY: clean
 clean: mock-clean
