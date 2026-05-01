@@ -49,28 +49,46 @@ func TestOutput_Render(t *testing.T) {
 			"wrap content in markers",
 			"hello\n",
 			"",
-			"\n" + internal.OutputBeginMarker + "hello\n" + internal.OutputEndMarker,
+			joinLines(
+				"",
+				internal.OutputBeginMarker,
+				"hello",
+				internal.OutputEndMarker+"\n",
+			),
 		},
 		{
 			"ensure content rendered with trailing newline",
 			"hello",
 			"",
-			"\n" + internal.OutputBeginMarker + "hello\n" + internal.OutputEndMarker,
+			joinLines(
+				"",
+				internal.OutputBeginMarker,
+				"hello",
+				internal.OutputEndMarker+"\n",
+			),
 		},
 		{
 			"multiline content",
 			"hello\nworld",
 			"",
-			"\n" + internal.OutputBeginMarker + "hello\nworld\n" + internal.OutputEndMarker,
+			joinLines(
+				"",
+				internal.OutputBeginMarker,
+				"hello",
+				"world",
+				internal.OutputEndMarker+"\n",
+			),
 		},
 		{
 			"indent content",
 			"hello\n",
 			"  ",
-			"\n" +
-				"  " + internal.OutputBeginMarker +
-				"  " + "hello\n" +
-				"  " + internal.OutputEndMarker,
+			joinLines(
+				"",
+				"  "+internal.OutputBeginMarker,
+				"  hello",
+				"  "+internal.OutputEndMarker+"\n",
+			),
 		},
 	}
 
@@ -89,12 +107,6 @@ func TestOutput_Render(t *testing.T) {
 }
 
 func TestOutputFromBlocks(t *testing.T) {
-	htmlComment := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindHTMLComment, []byte(content))
-	}
-	text := func(content string) internal.Block {
-		return internal.MakeBlockFromRaw(internal.BlockKindText, []byte(content))
-	}
 	wantOutput := func(content string) string {
 		return internal.MakeOutput(content).Render("")
 	}
@@ -102,9 +114,9 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("output block is scanned in", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			htmlComment(internal.OutputBeginMarker),
-			text("hello\n"),
-			htmlComment(internal.OutputEndMarker),
+			cmnt("", internal.OutputBeginMarker, false),
+			text("", "hello\n", false),
+			cmnt("", internal.OutputEndMarker, false),
 		}
 
 		// when
@@ -120,10 +132,10 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("leading whitespace blocks are skipped", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			text("\n"),
-			htmlComment(internal.OutputBeginMarker),
-			text("hello\n"),
-			htmlComment(internal.OutputEndMarker),
+			text("", "\n", false),
+			cmnt("", internal.OutputBeginMarker, false),
+			text("", "hello\n", false),
+			cmnt("", internal.OutputEndMarker, false),
 		}
 
 		// when
@@ -139,9 +151,9 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("indented output block is scanned in", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			htmlComment("    " + internal.OutputBeginMarker),
-			text("    hello\n    world\n"),
-			htmlComment("    " + internal.OutputEndMarker),
+			cmnt("    ", internal.OutputBeginMarker, false),
+			text("    ", "hello\nworld\n", false),
+			cmnt("    ", internal.OutputEndMarker, false),
 		}
 
 		// when
@@ -157,9 +169,9 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("indented output content must match marker indent", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			htmlComment("    " + internal.OutputBeginMarker),
-			text("  hello\n"),
-			htmlComment("    " + internal.OutputEndMarker),
+			cmnt("    ", internal.OutputBeginMarker, false),
+			text("  ", "hello\n", false),
+			cmnt("    ", internal.OutputEndMarker, false),
 		}
 
 		// when
@@ -172,9 +184,9 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("indented output end marker must match begin marker indent", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			htmlComment("    " + internal.OutputBeginMarker),
-			text("    hello\n"),
-			htmlComment("  " + internal.OutputEndMarker),
+			cmnt("    ", internal.OutputBeginMarker, false),
+			text("    ", "hello\n", false),
+			cmnt("  ", internal.OutputEndMarker, false),
 		}
 
 		// when
@@ -187,7 +199,7 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("no output block returns zero value and zero consumed", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			text("some text\n"),
+			text("", "some text\n", false),
 		}
 
 		// when
@@ -214,8 +226,8 @@ func TestOutputFromBlocks(t *testing.T) {
 	t.Run("opening marker without closing marker returns error", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{
-			htmlComment(internal.OutputBeginMarker),
-			text("hello\n"),
+			cmnt("", internal.OutputBeginMarker, false),
+			text("", "hello\n", false),
 		}
 
 		// when

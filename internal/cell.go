@@ -28,22 +28,28 @@ func (t StaticCell) Render() (string, error) {
 
 type BashCell struct {
 	fencedCode string
-	output     string
+	indent     string
+	output     Output
 }
 
-func MakeBashCellFromRaw(fencedCode, output string) BashCell {
-	return BashCell{fencedCode: fencedCode, output: output}
+func MakeBashCellFromRaw(fencedCode string, output Output) BashCell {
+	return BashCell{
+		fencedCode: fencedCode,
+		indent:     leadingIndent(fencedCode),
+		output:     output,
+	}
 }
 
 func (c BashCell) Execute() (Cell, error) {
-	return c, nil
+	return BashCell{
+		fencedCode: c.fencedCode,
+		indent:     c.indent,
+		output:     MakeOutput("output"),
+	}, nil
 }
 
 func (c BashCell) Render() (string, error) {
-	if c.output == "" {
-		return c.fencedCode, nil
-	}
-	return c.fencedCode + "\n" + c.output, nil
+	return c.fencedCode + c.output.Render(c.indent), nil
 }
 
 type InfoString struct {
@@ -71,17 +77,34 @@ func ParseInfoString(b Block) InfoString {
 	return InfoString{Lang: lang, Litdoc: litdoc}
 }
 
-// Classify todo: review this function
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
-	for _, b := range blocks {
+	i := 0
+	for i < len(blocks) {
+		b := blocks[i]
 		switch b.kind {
 		case BlockKindFencedCode, BlockKindHTMLComment:
 			info := ParseInfoString(b)
 			switch {
 			case info.Litdoc && info.Lang == "bash":
-				cell := MakeBashCellFromRaw(renderStaticBlock(b), "")
-				cells = append(cells, cell)
+				output, outputIndent, consumed, err := OutputFromBlocks(blocks[i+1:])
+				if err != nil {
+					return nil, err
+				}
+				if consumed > 0 && outputIndent != b.indent {
+					return nil, fmt.Errorf(
+						"output indentation %q does not match bash cell indentation %q",
+						outputIndent,
+						b.indent,
+					)
+				}
+				cells = append(cells, BashCell{
+					fencedCode: renderStaticBlock(b),
+					indent:     b.indent,
+					output:     output,
+				})
+				i += 1 + consumed
+				continue
 			case info.Litdoc:
 				return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 			default:
@@ -90,6 +113,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 		default:
 			cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
 		}
+		i++
 	}
 	return cells, nil
 }
@@ -130,6 +154,18 @@ func renderIndent(indent string) string {
 		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
 	}
 	return strings.Repeat(" ", len(indent))
+}
+
+func leadingIndent(s string) string {
+	line := s
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		line = s[:i]
+	}
+	i := 0
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	return line[:i]
 }
 
 func Execute(cells []Cell) ([]Cell, error) {

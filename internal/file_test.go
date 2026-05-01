@@ -52,8 +52,8 @@ func TestProcessFileNestedListIndent(t *testing.T) {
 	// then
 	require.NoError(t, err)
 	want := "- Level 1\n\n  - Level 2\n\n    ```bash | litdoc\n    echo hello\n    ```\n" +
-		"\n    " + internal.OutputBeginMarker +
+		"\n    " + internal.OutputBeginMarker + "\n" +
 		"    output\n" +
-		"    " + internal.OutputEndMarker
+		"    " + internal.OutputEndMarker + "\n"
 	assert.Equal(t, want, got)
 }
