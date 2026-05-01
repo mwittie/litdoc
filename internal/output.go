@@ -47,7 +47,7 @@ func isOutputEnd(b Block) bool {
 		strings.HasPrefix(b.content, OutputEndMarker)
 }
 
-func OutputFromBlocks(blocks []Block) (Output, string, int, error) {
+func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	i := 0
 	for i < len(blocks) &&
 		blocks[i].kind == BlockKindText &&
@@ -56,7 +56,7 @@ func OutputFromBlocks(blocks []Block) (Output, string, int, error) {
 	}
 
 	if i >= len(blocks) || !isOutputBegin(blocks[i]) {
-		return Output{}, "", 0, nil
+		return Output{}, 0, nil
 	}
 	indent := blocks[i].indent
 	i++
@@ -65,17 +65,17 @@ func OutputFromBlocks(blocks []Block) (Output, string, int, error) {
 	for i < len(blocks) {
 		if isOutputEnd(blocks[i]) {
 			if blocks[i].indent != indent {
-				return Output{}, "", 0, fmt.Errorf(
+				return Output{}, 0, fmt.Errorf(
 					"output end marker indentation: got %q, want %q",
 					blocks[i].indent,
 					indent,
 				)
 			}
 			i++
-			return MakeOutput(buf.String()), indent, i, nil
+			return MakeOutput(buf.String()), i, nil
 		}
 		if blocks[i].indent != indent {
-			return Output{}, "", 0, fmt.Errorf(
+			return Output{}, 0, fmt.Errorf(
 				"output content indentation: got %q, want %q",
 				blocks[i].indent,
 				indent,
@@ -85,5 +85,5 @@ func OutputFromBlocks(blocks []Block) (Output, string, int, error) {
 		i++
 	}
 
-	return Output{}, "", 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
+	return Output{}, 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
 }

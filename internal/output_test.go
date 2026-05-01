@@ -107,8 +107,8 @@ func TestOutput_Render(t *testing.T) {
 }
 
 func TestOutputFromBlocks(t *testing.T) {
-	wantOutput := func(content string) string {
-		return internal.MakeOutput(content).Render("")
+	wantOutput := func(indent, content string) string {
+		return internal.MakeOutput(content).Render(indent)
 	}
 
 	t.Run("output block is scanned in", func(t *testing.T) {
@@ -120,12 +120,11 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, indent, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "", indent)
-		assert.Equal(t, wantOutput("hello"), output.Render(indent))
+		assert.Equal(t, wantOutput("", "hello"), output.Render(""))
 		assert.Equal(t, 3, consumed)
 	})
 
@@ -139,12 +138,11 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, indent, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "", indent)
-		assert.Equal(t, wantOutput("hello"), output.Render(indent))
+		assert.Equal(t, wantOutput("", "hello"), output.Render(""))
 		assert.Equal(t, 4, consumed)
 	})
 
@@ -157,12 +155,11 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, indent, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "    ", indent)
-		assert.Equal(t, internal.MakeOutput("hello\nworld").Render("    "), output.Render(indent))
+		assert.Equal(t, wantOutput("    ", "hello\nworld"), output.Render("    "))
 		assert.Equal(t, 3, consumed)
 	})
 
@@ -175,7 +172,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		_, _, _, err := internal.OutputFromBlocks(blocks)
+		_, _, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.ErrorContains(t, err, "output content indentation")
@@ -190,7 +187,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		_, _, _, err := internal.OutputFromBlocks(blocks)
+		_, _, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.ErrorContains(t, err, "output end marker indentation")
@@ -203,23 +200,21 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, indent, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "", indent)
-		assert.Equal(t, "", output.Render(indent))
+		assert.Equal(t, "", output.Render(""))
 		assert.Equal(t, 0, consumed)
 	})
 
 	t.Run("empty blocks returns zero value and zero consumed", func(t *testing.T) {
 		// when
-		output, indent, consumed, err := internal.OutputFromBlocks(nil)
+		output, consumed, err := internal.OutputFromBlocks(nil)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "", indent)
-		assert.Equal(t, "", output.Render(indent))
+		assert.Equal(t, "", output.Render(""))
 		assert.Equal(t, 0, consumed)
 	})
 
@@ -231,7 +226,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		_, _, _, err := internal.OutputFromBlocks(blocks)
+		_, _, err := internal.OutputFromBlocks(blocks)
 
 		// then
 		require.ErrorContains(t, err, "unclosed output block")

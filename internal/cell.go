@@ -87,16 +87,9 @@ func Classify(blocks []Block) ([]Cell, error) {
 			info := ParseInfoString(b)
 			switch {
 			case info.Litdoc && info.Lang == "bash":
-				output, outputIndent, consumed, err := OutputFromBlocks(blocks[i+1:])
+				output, consumed, err := OutputFromBlocks(blocks[i+1:])
 				if err != nil {
 					return nil, err
-				}
-				if consumed > 0 && outputIndent != b.indent {
-					return nil, fmt.Errorf(
-						"output indentation %q does not match bash cell indentation %q",
-						outputIndent,
-						b.indent,
-					)
 				}
 				cells = append(cells, BashCell{
 					fencedCode: renderStaticBlock(b),
