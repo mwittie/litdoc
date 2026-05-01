@@ -36,7 +36,7 @@ bin/litdoc: $(GO_FILES)
 build: bin/litdoc
 
 .PHONY: test
-test: build
+test:
 	@GOCACHE=$(GOCACHE) go test ./... --count=1
 
 .PHONY: clean
