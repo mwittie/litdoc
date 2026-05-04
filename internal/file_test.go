@@ -54,7 +54,8 @@ func TestProcessFileNestedListIndent(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.Write([]byte(input))
 	require.NoError(t, err)
-	f.Close()
+	err = f.Close()
+	require.NoError(t, err)
 
 	// when
 	got, err := internal.ProcessFile(f.Name())
