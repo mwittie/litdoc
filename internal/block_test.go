@@ -418,6 +418,15 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 			},
 		},
 		{
+			name:  "HTMLComment/top-level/leading-spaces",
+			input: "  <!-- comment -->\n",
+			want: []internal.Block{
+				text("", "  ", false),
+				cmnt("", "<!-- comment -->", false),
+				text("", "\n", true),
+			},
+		},
+		{
 			name: "HTMLComment/top-level/block",
 			input: joinLines(
 				"text",
@@ -522,6 +531,20 @@ func TestMakeBlocksFromMarkdown(t *testing.T) {
 				text("- ", "text\n", false),
 				cmnt("- ", "<!--\ncomment\n-->\n", false),
 				text("- ", "text", false),
+			},
+		},
+		{
+			name: "HTMLComment/list/dash/blank-before-indented-block",
+			input: joinLines(
+				"- item",
+				"",
+				"      <!-- BEGIN LITDOC OUTPUT -->",
+			) + "\n",
+			want: []internal.Block{
+				text("- ", "item\n", false),
+				text("  ", "\n", false),
+				cmnt("  ", "<!-- BEGIN LITDOC OUTPUT -->", false),
+				text("  ", "\n", true),
 			},
 		},
 		{

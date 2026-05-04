@@ -45,18 +45,33 @@ func isOutputEnd(b Block) bool {
 		strings.HasPrefix(b.content, OutputEndMarker)
 }
 
-func OutputFromBlocks(blocks []Block) (Output, int, error) {
+func OutputFromBlocks(litdoc Block, blocks []Block) (Output, int, error) {
+	// Output belongs to the preceding litdoc block, so its lines must use the
+	// indentation that rendering that block would use for following content.
+	outputIndent := renderIndent(litdoc.indent)
 	i := 0
-	for i < len(blocks) &&
-		blocks[i].kind == BlockKindText &&
-		strings.TrimSpace(blocks[i].content) == "" {
+
+	var err error
+	i, err = skipWhitespaceLines(blocks, i, litdoc.indent, outputIndent)
+	if err != nil {
+		return Output{}, 0, err
+	}
+
+	beginLinePrefix := false
+	if isWhitespaceBeforeOutputBegin(blocks, i) {
+		if err := validateInlineMarkerPrefix(blocks[i], outputIndent, "begin"); err != nil {
+			return Output{}, 0, err
+		}
+		beginLinePrefix = true
 		i++
 	}
 
 	if i >= len(blocks) || !isOutputBegin(blocks[i]) {
 		return Output{}, 0, nil
 	}
-	indent := blocks[i].indent
+	if err := validateOutputMarkerIndent(blocks[i], outputIndent, beginLinePrefix, "begin"); err != nil {
+		return Output{}, 0, err
+	}
 	i++
 	// Inline HTML comments can leave a whitespace-only continuation block for
 	// the rest of the marker line. It is parser residue, not output content.
@@ -65,19 +80,19 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	var buf strings.Builder
 	for i < len(blocks) {
 		// A space before an inline-split end marker is emitted as a separate
-		// text block, not as marker indentation. Drop it before matching END.
+		// text block, not as marker indentation. Validate and consume it before
+		// matching END.
+		endLinePrefix := false
 		if isWhitespaceBeforeOutputEnd(blocks, i) {
+			if err := validateInlineMarkerPrefix(blocks[i], outputIndent, "end"); err != nil {
+				return Output{}, 0, err
+			}
+			endLinePrefix = true
 			i++
-			continue
 		}
 		if isOutputEnd(blocks[i]) {
-			if blocks[i].indent != indent {
-				return Output{}, 0, fmt.Errorf(
-					"output end marker indentation: got %q for content %q, want %q",
-					blocks[i].indent,
-					blocks[i].content,
-					indent,
-				)
+			if err := validateOutputMarkerIndent(blocks[i], outputIndent, endLinePrefix, "end"); err != nil {
+				return Output{}, 0, err
 			}
 			i++
 			// Consume the newline or trailing whitespace after an inline end
@@ -85,19 +100,118 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 			i = skipOutputMarkerLineRemainder(blocks, i)
 			return MakeOutput(buf.String()), i, nil
 		}
-		if blocks[i].indent != indent {
-			return Output{}, 0, fmt.Errorf(
-				"output content indentation: got %q for content %q, want %q",
-				blocks[i].indent,
-				blocks[i].content,
-				indent,
-			)
+		content, err := outputContent(blocks[i], outputIndent)
+		if err != nil {
+			return Output{}, 0, err
 		}
-		buf.WriteString(blocks[i].content)
+		buf.WriteString(content)
 		i++
 	}
 
 	return Output{}, 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
+}
+
+func isWhitespaceText(b Block) bool {
+	return b.kind == BlockKindText && strings.TrimSpace(b.content) == ""
+}
+
+func skipWhitespaceLines(blocks []Block, i int, litdocIndent, outputIndent string) (int, error) {
+	for i < len(blocks) &&
+		isWhitespaceText(blocks[i]) &&
+		strings.Contains(blocks[i].content, "\n") {
+		if err := validateOutputBlankLineIndent(blocks[i], litdocIndent, outputIndent); err != nil {
+			return 0, err
+		}
+		i++
+	}
+	return i, nil
+}
+
+func validateOutputBlankLineIndent(b Block, litdocIndent, outputIndent string) error {
+	if litdocIndent == outputIndent || b.indent != litdocIndent {
+		return nil
+	}
+	return fmt.Errorf(
+		"output blank line indentation: got %q for content %q, want %q",
+		b.indent,
+		b.content,
+		outputIndent,
+	)
+}
+
+func isWhitespaceBeforeOutputBegin(blocks []Block, i int) bool {
+	return i+1 < len(blocks) &&
+		blocks[i].kind == BlockKindText &&
+		!strings.Contains(blocks[i].content, "\n") &&
+		strings.TrimSpace(blocks[i].content) == "" &&
+		isOutputBegin(blocks[i+1])
+}
+
+func validateInlineMarkerPrefix(b Block, indent, marker string) error {
+	if b.content == indent {
+		return nil
+	}
+	return fmt.Errorf(
+		"output %s marker indentation: got %q for content %q, want %q",
+		marker,
+		b.content,
+		b.content,
+		indent,
+	)
+}
+
+func validateOutputMarkerIndent(b Block, indent string, inlinePrefix bool, marker string) error {
+	want := indent
+	if inlinePrefix {
+		want = ""
+	}
+	if b.indent == want {
+		return nil
+	}
+	return fmt.Errorf(
+		"output %s marker indentation: got %q for content %q, want %q",
+		marker,
+		b.indent,
+		b.content,
+		indent,
+	)
+}
+
+func outputContent(b Block, indent string) (string, error) {
+	if b.indent == indent {
+		return b.content, nil
+	}
+	if b.indent == "" && isSpaceIndent([]byte(indent)) {
+		if content, ok := stripLinePrefix(b.content, indent); ok {
+			return content, nil
+		}
+	}
+	return "", fmt.Errorf(
+		"output content indentation: got %q for content %q, want %q",
+		b.indent,
+		b.content,
+		indent,
+	)
+}
+
+func stripLinePrefix(content, prefix string) (string, bool) {
+	if prefix == "" {
+		return content, true
+	}
+
+	var buf strings.Builder
+	for len(content) > 0 {
+		line := content
+		if i := strings.IndexByte(content, '\n'); i >= 0 {
+			line = content[:i+1]
+		}
+		if !strings.HasPrefix(line, prefix) {
+			return "", false
+		}
+		buf.WriteString(strings.TrimPrefix(line, prefix))
+		content = content[len(line):]
+	}
+	return buf.String(), true
 }
 
 func skipOutputMarkerLineRemainder(blocks []Block, i int) int {

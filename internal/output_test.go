@@ -40,16 +40,16 @@ func TestOutput_Render(t *testing.T) {
 		want    string
 	}{
 		{
-			"empty",
-			"",
-			"",
-			"",
+			name:    "empty",
+			content: "",
+			indent:  "",
+			want:    "",
 		},
 		{
-			"wrap content in markers",
-			"hello\n",
-			"",
-			joinLines(
+			name:    "wrap content in markers",
+			content: "hello\n",
+			indent:  "",
+			want: joinLines(
 				"",
 				internal.OutputBeginMarker,
 				"hello",
@@ -57,10 +57,10 @@ func TestOutput_Render(t *testing.T) {
 			),
 		},
 		{
-			"ensure content rendered with trailing newline",
-			"hello",
-			"",
-			joinLines(
+			name:    "ensure content rendered with trailing newline",
+			content: "hello",
+			indent:  "",
+			want: joinLines(
 				"",
 				internal.OutputBeginMarker,
 				"hello",
@@ -68,10 +68,10 @@ func TestOutput_Render(t *testing.T) {
 			),
 		},
 		{
-			"multiline content",
-			"hello\nworld",
-			"",
-			joinLines(
+			name:    "multiline content",
+			content: "hello\nworld",
+			indent:  "",
+			want: joinLines(
 				"",
 				internal.OutputBeginMarker,
 				"hello",
@@ -80,10 +80,10 @@ func TestOutput_Render(t *testing.T) {
 			),
 		},
 		{
-			"indent content",
-			"hello\n",
-			"  ",
-			joinLines(
+			name:    "indent content",
+			content: "hello\n",
+			indent:  "  ",
+			want: joinLines(
 				"",
 				"  "+internal.OutputBeginMarker,
 				"  hello",
@@ -91,10 +91,10 @@ func TestOutput_Render(t *testing.T) {
 			),
 		},
 		{
-			"blockquote content",
-			"hello\n",
-			"> ",
-			joinLines(
+			name:    "blockquote content",
+			content: "hello\n",
+			indent:  "> ",
+			want: joinLines(
 				">",
 				"> "+internal.OutputBeginMarker,
 				"> hello",
@@ -124,6 +124,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 	t.Run("output block is scanned in", func(t *testing.T) {
 		// given
+		litdoc := code("", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			cmnt("", internal.OutputBeginMarker, false),
 			text("", "hello\n", false),
@@ -131,7 +132,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.NoError(t, err)
@@ -141,6 +142,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 	t.Run("leading whitespace blocks are skipped", func(t *testing.T) {
 		// given
+		litdoc := code("", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			text("", "\n", false),
 			cmnt("", internal.OutputBeginMarker, false),
@@ -149,7 +151,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.NoError(t, err)
@@ -159,6 +161,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 	t.Run("indented output block is scanned in", func(t *testing.T) {
 		// given
+		litdoc := code("    ", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			cmnt("    ", internal.OutputBeginMarker, false),
 			text("    ", "hello\nworld\n", false),
@@ -166,7 +169,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.NoError(t, err)
@@ -176,6 +179,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 	t.Run("inline marker line remainders are consumed", func(t *testing.T) {
 		// given
+		litdoc := code(" ", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			text("", "\n", false),
 			text("", " ", false),
@@ -189,16 +193,76 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		output, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput("", " output"), output.Render(""))
+		assert.Equal(t, wantOutput(" ", "output"), output.Render(" "))
 		assert.Equal(t, 8, consumed)
+	})
+
+	t.Run("parser-space-prefixed output is normalized", func(t *testing.T) {
+		// given
+		litdoc := code("  ", "```bash | litdoc\n```\n", false)
+		blocks := []internal.Block{
+			text("", "\n", false),
+			text("", "  ", false),
+			cmnt("", internal.OutputBeginMarker, false),
+			text("", "\n", true),
+			text("", "  hello\n  world\n", false),
+			text("", "  ", false),
+			cmnt("", internal.OutputEndMarker, false),
+			text("", "\n", true),
+		}
+
+		// when
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, wantOutput("  ", "hello\nworld"), output.Render("  "))
+		assert.Equal(t, 8, consumed)
+	})
+
+	t.Run("list item output uses rendered indentation", func(t *testing.T) {
+		// given
+		litdoc := code("- ", "```bash | litdoc\n```\n", false)
+		blocks := []internal.Block{
+			text("  ", "\n", false),
+			cmnt("  ", internal.OutputBeginMarker, false),
+			text("  ", "hello\n", false),
+			cmnt("  ", internal.OutputEndMarker, false),
+		}
+
+		// when
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, wantOutput("  ", "hello"), output.Render("  "))
+		assert.Equal(t, 4, consumed)
+	})
+
+	t.Run("list item output blank line must use rendered indentation", func(t *testing.T) {
+		// given
+		litdoc := code("- ", "```bash | litdoc\n```\n", false)
+		blocks := []internal.Block{
+			text("- ", "\n", false),
+			cmnt("  ", internal.OutputBeginMarker, false),
+			text("  ", "hello\n", false),
+			cmnt("  ", internal.OutputEndMarker, false),
+		}
+
+		// when
+		_, _, err := internal.OutputFromBlocks(litdoc, blocks)
+
+		// then
+		require.ErrorContains(t, err, "output blank line indentation")
 	})
 
 	t.Run("indented output content must match marker indent", func(t *testing.T) {
 		// given
+		litdoc := code("    ", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			cmnt("    ", internal.OutputBeginMarker, false),
 			text("  ", "hello\n", false),
@@ -206,7 +270,7 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		_, _, err := internal.OutputFromBlocks(blocks)
+		_, _, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.ErrorContains(t, err, "output content indentation")
@@ -214,6 +278,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 	t.Run("indented output end marker must match begin marker indent", func(t *testing.T) {
 		// given
+		litdoc := code("    ", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			cmnt("    ", internal.OutputBeginMarker, false),
 			text("    ", "hello\n", false),
@@ -221,20 +286,53 @@ func TestOutputFromBlocks(t *testing.T) {
 		}
 
 		// when
-		_, _, err := internal.OutputFromBlocks(blocks)
+		_, _, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.ErrorContains(t, err, "output end marker indentation")
 	})
 
+	t.Run("output begin marker must match litdoc indent", func(t *testing.T) {
+		// given
+		litdoc := code("  ", "```bash | litdoc\n```\n", false)
+		blocks := []internal.Block{
+			cmnt("", internal.OutputBeginMarker, false),
+			text("  ", "hello\n", false),
+			cmnt("  ", internal.OutputEndMarker, false),
+		}
+
+		// when
+		_, _, err := internal.OutputFromBlocks(litdoc, blocks)
+
+		// then
+		require.ErrorContains(t, err, "output begin marker indentation")
+	})
+
+	t.Run("list item output marker must use rendered indentation", func(t *testing.T) {
+		// given
+		litdoc := code("- ", "```bash | litdoc\n```\n", false)
+		blocks := []internal.Block{
+			cmnt("- ", internal.OutputBeginMarker, false),
+			text("  ", "hello\n", false),
+			cmnt("  ", internal.OutputEndMarker, false),
+		}
+
+		// when
+		_, _, err := internal.OutputFromBlocks(litdoc, blocks)
+
+		// then
+		require.ErrorContains(t, err, "output begin marker indentation")
+	})
+
 	t.Run("no output block returns zero value and zero consumed", func(t *testing.T) {
 		// given
+		litdoc := code("", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			text("", "some text\n", false),
 		}
 
 		// when
-		output, consumed, err := internal.OutputFromBlocks(blocks)
+		output, consumed, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.NoError(t, err)
@@ -243,8 +341,11 @@ func TestOutputFromBlocks(t *testing.T) {
 	})
 
 	t.Run("empty blocks returns zero value and zero consumed", func(t *testing.T) {
+		// given
+		litdoc := code("", "```bash | litdoc\n```\n", false)
+
 		// when
-		output, consumed, err := internal.OutputFromBlocks(nil)
+		output, consumed, err := internal.OutputFromBlocks(litdoc, nil)
 
 		// then
 		require.NoError(t, err)
@@ -254,13 +355,14 @@ func TestOutputFromBlocks(t *testing.T) {
 
 	t.Run("opening marker without closing marker returns error", func(t *testing.T) {
 		// given
+		litdoc := code("", "```bash | litdoc\n```\n", false)
 		blocks := []internal.Block{
 			cmnt("", internal.OutputBeginMarker, false),
 			text("", "hello\n", false),
 		}
 
 		// when
-		_, _, err := internal.OutputFromBlocks(blocks)
+		_, _, err := internal.OutputFromBlocks(litdoc, blocks)
 
 		// then
 		require.ErrorContains(t, err, "unclosed output block")

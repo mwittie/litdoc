@@ -148,7 +148,11 @@ func (c *blockCollector) collectLeaf(node *sitter.Node, indent, stripPrefix []by
 	end := node.EndByte()
 	blockIndent, blockStripPrefix := blockPrefixes(node, c.content, indent, stripPrefix)
 
-	c.appendTextGap(start, stripPrefix, indent)
+	gapStripPrefix := stripPrefix
+	if isOutputMarkerRaw(c.content[start:end]) {
+		gapStripPrefix = blockStripPrefix
+	}
+	c.appendTextGap(start, gapStripPrefix, blockIndent)
 
 	raw := stripIndent(c.content[start:end], blockStripPrefix)
 	kind := blockKind(node, c.content)
@@ -176,6 +180,9 @@ func (c *blockCollector) appendTextGap(end uint32, stripPrefix, indent []byte) {
 		return
 	}
 	gap := stripIndent(c.content[c.pos:end], stripPrefix)
+	if len(bytes.TrimSpace(gap)) == 0 {
+		indent = []byte(renderIndent(string(indent)))
+	}
 	c.appendBlock(BlockKindText, gap, indent)
 }
 
@@ -247,6 +254,14 @@ func blockPrefixes(
 	if len(linePrefix) > 0 && !bytes.Equal(linePrefix, indent) {
 		blockIndent = linePrefix
 		blockStripPrefix = linePrefix
+		if normalizedIndent, ok := normalizeHTMLCommentPrefix(
+			content[start:end],
+			linePrefix,
+			indent,
+		); ok {
+			blockIndent = normalizedIndent
+			return blockIndent, blockStripPrefix
+		}
 		if isSpaceIndent(linePrefix) {
 			rawLeading := leadingLineSpaces(content[start:end])
 			if len(rawLeading) > 0 {
@@ -269,6 +284,26 @@ func blockPrefixes(
 		blockStripPrefix = rawLeading
 	}
 	return blockIndent, blockStripPrefix
+}
+
+func normalizeHTMLCommentPrefix(raw, linePrefix, containerIndent []byte) ([]byte, bool) {
+	renderedIndent := []byte(renderIndent(string(containerIndent)))
+	if !bytes.HasPrefix(linePrefix, renderedIndent) {
+		return nil, false
+	}
+	if len(bytes.Trim(linePrefix[len(renderedIndent):], " ")) > 0 {
+		return nil, false
+	}
+	if !isOutputMarkerRaw(raw) {
+		return nil, false
+	}
+	return renderedIndent, true
+}
+
+func isOutputMarkerRaw(raw []byte) bool {
+	raw = bytes.TrimLeft(raw, " ")
+	return bytes.HasPrefix(raw, []byte(OutputBeginMarker)) ||
+		bytes.HasPrefix(raw, []byte(OutputEndMarker))
 }
 
 func isClosedFencedCodeBlock(content []byte) bool {
@@ -479,7 +514,9 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 		}
 		pos := 0
 		for _, loc := range locs {
-			if loc[0] > pos {
+			wholeBlock := isWholeTextBlock(content, loc)
+			outputMarker := isOutputMarkerContent(content[loc[0]:loc[1]])
+			if loc[0] > pos && !isWholeBlockPrefix(content[pos:loc[0]], wholeBlock, outputMarker) {
 				result = append(
 					result,
 					MakeBlockFromRaw(
@@ -490,15 +527,18 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 					),
 				)
 			}
-			wholeBlock := isWholeTextBlock(content, loc)
 			commentContinuation := b.continuation
 			if !wholeBlock {
 				commentContinuation = b.continuation || loc[0] > 0
 			}
+			commentIndent := b.indent
+			if wholeBlock && outputMarker && b.indent == "" {
+				commentIndent = content[pos:loc[0]]
+			}
 			result = append(result, MakeBlockFromRaw(
 				BlockKindHTMLComment,
 				content[loc[0]:loc[1]],
-				b.indent,
+				commentIndent,
 				commentContinuation,
 			))
 			pos = loc[1]
@@ -511,6 +551,15 @@ func splitInlineHTMLComments(blocks []Block) []Block {
 		}
 	}
 	return result
+}
+
+func isWholeBlockPrefix(content string, wholeBlock, outputMarker bool) bool {
+	return wholeBlock && outputMarker && strings.TrimSpace(content) == ""
+}
+
+func isOutputMarkerContent(content string) bool {
+	return strings.HasPrefix(content, OutputBeginMarker) ||
+		strings.HasPrefix(content, OutputEndMarker)
 }
 
 func isWholeTextBlock(content string, loc []int) bool {

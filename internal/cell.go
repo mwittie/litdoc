@@ -87,7 +87,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 			info := ParseInfoString(b)
 			switch {
 			case info.Litdoc && info.Lang == "bash":
-				output, consumed, err := OutputFromBlocks(blocks[i+1:])
+				output, consumed, err := OutputFromBlocks(b, blocks[i+1:])
 				if err != nil {
 					return nil, fmt.Errorf("parsing output: %w", err)
 				}
