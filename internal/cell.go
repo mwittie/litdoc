@@ -28,22 +28,28 @@ func (t StaticCell) Render() (string, error) {
 
 type BashCell struct {
 	fencedCode string
-	output     string
+	indent     string
+	output     Output
 }
 
-func MakeBashCellFromRaw(fencedCode, output string) BashCell {
-	return BashCell{fencedCode: fencedCode, output: output}
+func MakeBashCellFromRaw(fencedCode string, output Output) BashCell {
+	return BashCell{
+		fencedCode: fencedCode,
+		indent:     leadingIndent(fencedCode),
+		output:     output,
+	}
 }
 
 func (c BashCell) Execute() (Cell, error) {
-	return c, nil
+	return BashCell{
+		fencedCode: c.fencedCode,
+		indent:     c.indent,
+		output:     MakeOutput("output"),
+	}, nil
 }
 
 func (c BashCell) Render() (string, error) {
-	if c.output == "" {
-		return c.fencedCode, nil
-	}
-	return c.fencedCode + "\n" + c.output, nil
+	return c.fencedCode + c.output.Render(renderIndent(c.indent)), nil
 }
 
 type InfoString struct {
@@ -71,17 +77,27 @@ func ParseInfoString(b Block) InfoString {
 	return InfoString{Lang: lang, Litdoc: litdoc}
 }
 
-// Classify todo: review this function
 func Classify(blocks []Block) ([]Cell, error) {
 	var cells []Cell
-	for _, b := range blocks {
+	i := 0
+	for i < len(blocks) {
+		b := blocks[i]
 		switch b.kind {
 		case BlockKindFencedCode, BlockKindHTMLComment:
 			info := ParseInfoString(b)
 			switch {
 			case info.Litdoc && info.Lang == "bash":
-				cell := MakeBashCellFromRaw(renderStaticBlock(b), "")
-				cells = append(cells, cell)
+				output, consumed, err := OutputFromBlocks(b, blocks[i+1:])
+				if err != nil {
+					return nil, fmt.Errorf("parsing output: %w", err)
+				}
+				cells = append(cells, BashCell{
+					fencedCode: renderStaticBlock(b),
+					indent:     b.indent,
+					output:     output,
+				})
+				i += 1 + consumed
+				continue
 			case info.Litdoc:
 				return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 			default:
@@ -90,6 +106,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 		default:
 			cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
 		}
+		i++
 	}
 	return cells, nil
 }
@@ -102,19 +119,22 @@ func renderStaticBlock(b Block) string {
 	lines := strings.Split(b.content, "\n")
 	var rendered strings.Builder
 	renderedIndent := renderIndent(b.indent)
+	blankLineIndent := blankBlockQuoteLinePrefix(b.indent)
 	for i, line := range lines {
 		if i == len(lines)-1 && len(line) == 0 {
 			break
 		}
 		if i > 0 {
 			rendered.WriteByte('\n')
-			if len(line) > 0 {
-				rendered.WriteString(renderedIndent)
-			}
-		} else {
-			if len(line) > 0 && !b.continuation {
-				rendered.WriteString(b.indent)
-			}
+		}
+		if len(line) == 0 {
+			rendered.WriteString(blankLineIndent)
+			continue
+		}
+		if i > 0 {
+			rendered.WriteString(renderedIndent)
+		} else if !b.continuation {
+			rendered.WriteString(b.indent)
 		}
 		rendered.WriteString(line)
 	}
@@ -124,12 +144,31 @@ func renderStaticBlock(b Block) string {
 	return rendered.String()
 }
 
+func blankBlockQuoteLinePrefix(indent string) string {
+	if idx := strings.LastIndex(indent, ">"); idx >= 0 {
+		return indent[:idx+1]
+	}
+	return ""
+}
+
 func renderIndent(indent string) string {
 	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
 		prefixLen := idx + len("> ")
 		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
 	}
 	return strings.Repeat(" ", len(indent))
+}
+
+func leadingIndent(s string) string {
+	line := s
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		line = s[:i]
+	}
+	i := 0
+	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+		i++
+	}
+	return line[:i]
 }
 
 func Execute(cells []Cell) ([]Cell, error) {

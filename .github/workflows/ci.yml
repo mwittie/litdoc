@@ -22,6 +22,15 @@ jobs:
           name: litdoc
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
+      - uses: actions/cache@v4
+        with:
+          path: .go-cache
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-build-
+
+      - run: nix develop --ignore-environment --command make vendor
+
       - run: nix develop --ignore-environment --command make fmt-check
       - run: nix develop --ignore-environment --command make vet
       - run: nix develop --ignore-environment --command make test

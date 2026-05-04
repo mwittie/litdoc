@@ -192,7 +192,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		cell := internal.MakeBashCellFromRaw(code, "")
+		cell := internal.MakeBashCellFromRaw(code, internal.Output{})
 
 		// when
 		gotContent, err := cell.Render()
@@ -208,8 +208,9 @@ func TestBashCell(t *testing.T) {
 			"```bash",
 			"echo hello",
 			"```",
+			"",
 		)
-		output := "hello"
+		output := internal.MakeOutput("hello")
 		cell := internal.MakeBashCellFromRaw(fencedCode, output)
 
 		// when
@@ -217,10 +218,10 @@ func TestBashCell(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, fencedCode+"\n"+output, gotContent)
+		assert.Equal(t, fencedCode+output.Render(""), gotContent)
 	})
 
-	t.Run("executes to itself", func(t *testing.T) {
+	t.Run("execute produces stub output", func(t *testing.T) {
 		// given
 		fencedCode := joinLines(
 			"```bash",
@@ -228,7 +229,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		cell := internal.MakeBashCellFromRaw(fencedCode, "")
+		cell := internal.MakeBashCellFromRaw(fencedCode, internal.Output{})
 
 		// when
 		gotCell, err := cell.Execute()
@@ -237,7 +238,7 @@ func TestBashCell(t *testing.T) {
 		require.NoError(t, err)
 		rendered, err := gotCell.Render()
 		require.NoError(t, err)
-		assert.Equal(t, fencedCode, rendered)
+		assert.Equal(t, fencedCode+internal.MakeOutput("output").Render(""), rendered)
 	})
 }
 
@@ -442,6 +443,34 @@ func TestClassify(t *testing.T) {
 						"echo hello",
 						"```",
 						"",
+					),
+				},
+			},
+		},
+		{
+			name: "FencedCode/litdoc/bash/blockquote-with-output",
+			blocks: []internal.Block{
+				code("> ", joinLines(
+					"```bash | litdoc",
+					"echo hello",
+					"```",
+					"",
+				), false),
+				text("> ", "\n", false),
+				cmnt("> ", internal.OutputBeginMarker, false),
+				text("> ", "hello\n", false),
+				cmnt("> ", internal.OutputEndMarker, false),
+			},
+			want: []wantCell{
+				{
+					kind: "BashCell", rendered: joinLines(
+						"> ```bash | litdoc",
+						"> echo hello",
+						"> ```",
+						">",
+						"> "+internal.OutputBeginMarker,
+						"> hello",
+						"> "+internal.OutputEndMarker+"\n",
 					),
 				},
 			},
