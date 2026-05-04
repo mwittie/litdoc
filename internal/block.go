@@ -286,6 +286,10 @@ func blockPrefixes(
 	return blockIndent, blockStripPrefix
 }
 
+// normalizeHTMLCommentPrefix handles a tree-sitter quirk: output markers
+// inside list items are reported with a space-only linePrefix (the list
+// continuation indent) rather than the rendered block indent. Detect this case
+// and return the rendered indent so the marker is classified correctly.
 func normalizeHTMLCommentPrefix(raw, linePrefix, containerIndent []byte) ([]byte, bool) {
 	renderedIndent := []byte(renderIndent(string(containerIndent)))
 	if !bytes.HasPrefix(linePrefix, renderedIndent) {

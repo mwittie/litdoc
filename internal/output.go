@@ -115,6 +115,10 @@ func isWhitespaceText(b Block) bool {
 	return b.kind == BlockKindText && strings.TrimSpace(b.content) == ""
 }
 
+// skipWhitespaceLines skips blank-line text blocks between a litdoc cell and
+// its output block. Only blocks that contain a newline are skipped here;
+// single-line whitespace-only blocks are inline marker prefixes emitted by
+// the HTML comment splitter and are handled separately.
 func skipWhitespaceLines(blocks []Block, i int, litdocIndent, outputIndent string) (int, error) {
 	for i < len(blocks) &&
 		isWhitespaceText(blocks[i]) &&
