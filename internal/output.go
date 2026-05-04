@@ -154,7 +154,7 @@ func validateInlineMarkerPrefix(b Block, indent, marker string) error {
 	return fmt.Errorf(
 		"output %s marker indentation: got %q for content %q, want %q",
 		marker,
-		b.content,
+		b.indent,
 		b.content,
 		indent,
 	)
