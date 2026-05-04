@@ -5,11 +5,11 @@ pre-pr: clean mock fmt-check vet test
 
 .PHONY: fmt
 fmt:
-	@gofmt -w .
+	@gofmt -w $(GO_FILES)
 
 .PHONY: fmt-check
 fmt-check:
-	@unformatted=$$(gofmt -l .); \
+	@unformatted=$$(gofmt -l $(GO_FILES)); \
 	if [ -n "$$unformatted" ]; then \
 		echo "unformatted files:"; \
 		echo "$$unformatted"; \
