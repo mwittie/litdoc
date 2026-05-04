@@ -14,7 +14,7 @@
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             go
-            mockery
+            go-mockery
             cacert
           ];
           shellHook = ''
