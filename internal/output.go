@@ -18,28 +18,20 @@ func MakeOutput(content string) Output {
 	return Output{content: content}
 }
 
-func (o Output) Render(indent string) string {
+func (o Output) Render(linePrefix string) string {
 	if o.content == "" {
 		return ""
 	}
 
-	o.content = strings.TrimSuffix(o.content, "\n")
-
-	if indent == "" {
-		return "\n" + OutputBeginMarker + "\n" + o.content + "\n" + OutputEndMarker + "\n"
-	}
 	var buf strings.Builder
-	if blankLineIndent := renderBlankLineIndent(indent); blankLineIndent != "" {
-		buf.WriteString(blankLineIndent)
-		buf.WriteByte('\n')
-	} else {
-		buf.WriteByte('\n')
+	buf.WriteString(blankBlockQuoteLinePrefix(linePrefix))
+	buf.WriteByte('\n')
+	buf.WriteString(linePrefix + OutputBeginMarker + "\n")
+	for _, line := range strings.Split(strings.TrimSuffix(o.content, "\n"), "\n") {
+		buf.WriteString(linePrefix + line + "\n")
 	}
-	buf.WriteString(indent + OutputBeginMarker + "\n")
-	for _, line := range strings.Split(o.content, "\n") {
-		buf.WriteString(indent + line + "\n")
-	}
-	buf.WriteString(indent + OutputEndMarker + "\n")
+	buf.WriteString(linePrefix + OutputEndMarker + "\n")
+
 	return buf.String()
 }
 
@@ -66,10 +58,14 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	}
 	indent := blocks[i].indent
 	i++
+	// Inline HTML comments can leave a whitespace-only continuation block for
+	// the rest of the marker line. It is parser residue, not output content.
 	i = skipOutputMarkerLineRemainder(blocks, i)
 
 	var buf strings.Builder
 	for i < len(blocks) {
+		// A space before an inline-split end marker is emitted as a separate
+		// text block, not as marker indentation. Drop it before matching END.
 		if isWhitespaceBeforeOutputEnd(blocks, i) {
 			i++
 			continue
@@ -84,6 +80,8 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 				)
 			}
 			i++
+			// Consume the newline or trailing whitespace after an inline end
+			// marker so callers resume at the next meaningful block.
 			i = skipOutputMarkerLineRemainder(blocks, i)
 			return MakeOutput(buf.String()), i, nil
 		}
