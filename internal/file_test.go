@@ -18,22 +18,32 @@ var renderInput []byte
 var renderOutput []byte
 
 func TestProcessFile(t *testing.T) {
-	f, err := os.CreateTemp(t.TempDir(), "*.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.Write(renderInput); err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
-
-	got, err := internal.ProcessFile(f.Name())
-	if err != nil {
-		t.Fatalf("ProcessFile: %v", err)
+	tests := []struct {
+		name  string
+		input []byte
+		want  []byte
+	}{
+		{"input to output", renderInput, renderOutput},
+		{"output to output", renderOutput, renderOutput},
 	}
 
-	if got != string(renderOutput) {
-		t.Errorf("output mismatch\ngot:\n%s\nwant:\n%s", got, renderOutput)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// given
+			f, err := os.CreateTemp(t.TempDir(), "*.md")
+			require.NoError(t, err)
+			_, err = f.Write(tt.input)
+			require.NoError(t, err)
+			err = f.Close()
+			require.NoError(t, err)
+
+			// when
+			got, err := internal.ProcessFile(f.Name())
+
+			// then
+			require.NoError(t, err)
+			assert.Equal(t, string(tt.want), got)
+		})
 	}
 }
 

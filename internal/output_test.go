@@ -174,6 +174,29 @@ func TestOutputFromBlocks(t *testing.T) {
 		assert.Equal(t, 3, consumed)
 	})
 
+	t.Run("inline marker line remainders are consumed", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			text("", "\n", false),
+			text("", " ", false),
+			cmnt("", internal.OutputBeginMarker, false),
+			text("", "\n", true),
+			text("", " output\n", false),
+			text("", " ", false),
+			cmnt("", internal.OutputEndMarker, false),
+			text("", "\n", true),
+			text("", "\n", false),
+		}
+
+		// when
+		output, consumed, err := internal.OutputFromBlocks(blocks)
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, wantOutput("", " output"), output.Render(""))
+		assert.Equal(t, 8, consumed)
+	})
+
 	t.Run("indented output content must match marker indent", func(t *testing.T) {
 		// given
 		blocks := []internal.Block{

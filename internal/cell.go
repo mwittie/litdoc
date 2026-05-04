@@ -49,7 +49,7 @@ func (c BashCell) Execute() (Cell, error) {
 }
 
 func (c BashCell) Render() (string, error) {
-	return c.fencedCode + c.output.Render(c.indent), nil
+	return c.fencedCode + c.output.Render(renderIndent(c.indent)), nil
 }
 
 type InfoString struct {
@@ -89,7 +89,7 @@ func Classify(blocks []Block) ([]Cell, error) {
 			case info.Litdoc && info.Lang == "bash":
 				output, consumed, err := OutputFromBlocks(blocks[i+1:])
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("parsing output: %w", err)
 				}
 				cells = append(cells, BashCell{
 					fencedCode: renderStaticBlock(b),

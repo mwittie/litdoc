@@ -66,24 +66,32 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	}
 	indent := blocks[i].indent
 	i++
+	i = skipOutputMarkerLineRemainder(blocks, i)
 
 	var buf strings.Builder
 	for i < len(blocks) {
+		if isWhitespaceBeforeOutputEnd(blocks, i) {
+			i++
+			continue
+		}
 		if isOutputEnd(blocks[i]) {
 			if blocks[i].indent != indent {
 				return Output{}, 0, fmt.Errorf(
-					"output end marker indentation: got %q, want %q",
+					"output end marker indentation: got %q for content %q, want %q",
 					blocks[i].indent,
+					blocks[i].content,
 					indent,
 				)
 			}
 			i++
+			i = skipOutputMarkerLineRemainder(blocks, i)
 			return MakeOutput(buf.String()), i, nil
 		}
 		if blocks[i].indent != indent {
 			return Output{}, 0, fmt.Errorf(
-				"output content indentation: got %q, want %q",
+				"output content indentation: got %q for content %q, want %q",
 				blocks[i].indent,
+				blocks[i].content,
 				indent,
 			)
 		}
@@ -92,4 +100,22 @@ func OutputFromBlocks(blocks []Block) (Output, int, error) {
 	}
 
 	return Output{}, 0, fmt.Errorf("unclosed output block: missing %q", OutputEndMarker)
+}
+
+func skipOutputMarkerLineRemainder(blocks []Block, i int) int {
+	if i < len(blocks) &&
+		blocks[i].kind == BlockKindText &&
+		blocks[i].continuation &&
+		strings.TrimSpace(blocks[i].content) == "" {
+		return i + 1
+	}
+	return i
+}
+
+func isWhitespaceBeforeOutputEnd(blocks []Block, i int) bool {
+	return i+1 < len(blocks) &&
+		blocks[i].kind == BlockKindText &&
+		!strings.Contains(blocks[i].content, "\n") &&
+		strings.TrimSpace(blocks[i].content) == "" &&
+		isOutputEnd(blocks[i+1])
 }
