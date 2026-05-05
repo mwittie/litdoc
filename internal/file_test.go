@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"litdoc/internal"
+	"litdoc/internal/bash"
+	"litdoc/internal/static"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +40,9 @@ func TestProcessFile(t *testing.T) {
 			require.NoError(t, err)
 
 			// when
-			got, err := internal.ProcessFile(f.Name())
+			// todo: pull these definitions to given
+			got, err := internal.ProcessFile(
+				f.Name(), map[string]internal.CellParser{"static": static.ParseStaticCell, "bash": bash.ParseBashCell})
 
 			// then
 			require.NoError(t, err)
@@ -58,7 +62,7 @@ func TestProcessFileNestedListIndent(t *testing.T) {
 	require.NoError(t, err)
 
 	// when
-	got, err := internal.ProcessFile(f.Name())
+	got, err := internal.ProcessFile(f.Name(), map[string]internal.CellParser{"static": static.ParseStaticCell, "bash": bash.ParseBashCell})
 
 	// then
 	require.NoError(t, err)

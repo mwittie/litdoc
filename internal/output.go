@@ -48,7 +48,7 @@ func isOutputEnd(b Block) bool {
 func OutputFromBlocks(litdoc Block, blocks []Block) (Output, int, error) {
 	// Output belongs to the preceding litdoc block, so its lines must use the
 	// indentation that rendering that block would use for following content.
-	outputIndent := renderIndent(litdoc.indent)
+	outputIndent := RenderIndent(litdoc.indent)
 	i := 0
 
 	var err error

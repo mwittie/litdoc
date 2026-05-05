@@ -181,7 +181,7 @@ func (c *blockCollector) appendTextGap(end uint32, stripPrefix, indent []byte) {
 	}
 	gap := stripIndent(c.content[c.pos:end], stripPrefix)
 	if len(bytes.TrimSpace(gap)) == 0 {
-		indent = []byte(renderIndent(string(indent)))
+		indent = []byte(RenderIndent(string(indent)))
 	}
 	c.appendBlock(BlockKindText, gap, indent)
 }
@@ -291,7 +291,7 @@ func blockPrefixes(
 // continuation indent) rather than the rendered block indent. Detect this case
 // and return the rendered indent so the marker is classified correctly.
 func normalizeHTMLCommentPrefix(raw, linePrefix, containerIndent []byte) ([]byte, bool) {
-	renderedIndent := []byte(renderIndent(string(containerIndent)))
+	renderedIndent := []byte(RenderIndent(string(containerIndent)))
 	if !bytes.HasPrefix(linePrefix, renderedIndent) {
 		return nil, false
 	}

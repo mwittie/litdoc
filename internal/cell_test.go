@@ -4,37 +4,13 @@ import (
 	"testing"
 
 	"litdoc/internal"
+	"litdoc/internal/bash"
+	"litdoc/internal/static"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestStaticCell(t *testing.T) {
-	t.Run("renders raw content", func(t *testing.T) {
-		// given
-		content := "hello"
-		cell := internal.MakeStaticCellFromRaw(content)
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, content, gotContent)
-	})
-
-	t.Run("executes to itself", func(t *testing.T) {
-		// given
-		cell := internal.MakeStaticCellFromRaw("hello")
-
-		// when
-		gotCell, err := cell.Execute()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, cell, gotCell)
-	})
-}
 
 func TestParseInfoString(t *testing.T) {
 	tests := []struct {
@@ -183,64 +159,6 @@ func TestParseInfoString(t *testing.T) {
 	}
 }
 
-func TestBashCell(t *testing.T) {
-	t.Run("without output", func(t *testing.T) {
-		// given
-		code := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		cell := internal.MakeBashCellFromRaw(code, internal.Output{})
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, code, gotContent)
-	})
-
-	t.Run("with output", func(t *testing.T) {
-		// given
-		fencedCode := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		output := internal.MakeOutput("hello")
-		cell := internal.MakeBashCellFromRaw(fencedCode, output)
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, fencedCode+output.Render(""), gotContent)
-	})
-
-	t.Run("execute produces stub output", func(t *testing.T) {
-		// given
-		fencedCode := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		cell := internal.MakeBashCellFromRaw(fencedCode, internal.Output{})
-
-		// when
-		gotCell, err := cell.Execute()
-
-		// then
-		require.NoError(t, err)
-		rendered, err := gotCell.Render()
-		require.NoError(t, err)
-		assert.Equal(t, fencedCode+internal.MakeOutput("output").Render(""), rendered)
-	})
-}
 
 func TestExecute(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
@@ -586,10 +504,15 @@ func TestClassify(t *testing.T) {
 		},
 	}
 
+	parsers := map[string]internal.CellParser{
+		"static": static.ParseStaticCell,
+		"bash":   bash.ParseBashCell,
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// when
-			cells, err := internal.Classify(tt.blocks)
+			cells, err := internal.Classify(tt.blocks, parsers)
 
 			// then
 			if tt.wantErrText != "" {
@@ -617,9 +540,9 @@ func TestClassify(t *testing.T) {
 
 func cellKind(cell internal.Cell) string {
 	switch cell.(type) {
-	case internal.StaticCell:
+	case static.StaticCell:
 		return "StaticCell"
-	case internal.BashCell:
+	case bash.BashCell:
 		return "BashCell"
 	default:
 		return "unknown"

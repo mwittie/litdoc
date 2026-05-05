@@ -10,47 +10,7 @@ type Cell interface {
 	Render() (string, error)
 }
 
-type StaticCell struct {
-	content string
-}
-
-func MakeStaticCellFromRaw(content string) StaticCell {
-	return StaticCell{content: content}
-}
-
-func (t StaticCell) Execute() (Cell, error) {
-	return t, nil
-}
-
-func (t StaticCell) Render() (string, error) {
-	return t.content, nil
-}
-
-type BashCell struct {
-	fencedCode string
-	indent     string
-	output     Output
-}
-
-func MakeBashCellFromRaw(fencedCode string, output Output) BashCell {
-	return BashCell{
-		fencedCode: fencedCode,
-		indent:     leadingIndent(fencedCode),
-		output:     output,
-	}
-}
-
-func (c BashCell) Execute() (Cell, error) {
-	return BashCell{
-		fencedCode: c.fencedCode,
-		indent:     c.indent,
-		output:     MakeOutput("output"),
-	}, nil
-}
-
-func (c BashCell) Render() (string, error) {
-	return c.fencedCode + c.output.Render(renderIndent(c.indent)), nil
-}
+type CellParser func(block Block, following []Block) (Cell, int, error)
 
 type InfoString struct {
 	Lang   string
@@ -77,7 +37,12 @@ func ParseInfoString(b Block) InfoString {
 	return InfoString{Lang: lang, Litdoc: litdoc}
 }
 
-func Classify(blocks []Block) ([]Cell, error) {
+func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
+	// todo: make sure all this gets tested
+	static, ok := parsers["static"]
+	if !ok {
+		return nil, fmt.Errorf("no static parser provided")
+	}
 	var cells []Cell
 	i := 0
 	for i < len(blocks) {
@@ -86,39 +51,50 @@ func Classify(blocks []Block) ([]Cell, error) {
 		case BlockKindFencedCode, BlockKindHTMLComment:
 			info := ParseInfoString(b)
 			switch {
-			case info.Litdoc && info.Lang == "bash":
-				output, consumed, err := OutputFromBlocks(b, blocks[i+1:])
-				if err != nil {
-					return nil, fmt.Errorf("parsing output: %w", err)
+			case info.Litdoc:
+				parser, ok := parsers[info.Lang]
+				if !ok {
+					return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 				}
-				cells = append(cells, BashCell{
-					fencedCode: renderStaticBlock(b),
-					indent:     b.indent,
-					output:     output,
-				})
+				cell, consumed, err := parser(b, blocks[i+1:])
+				if err != nil {
+					return nil, err
+				}
+				cells = append(cells, cell)
 				i += 1 + consumed
 				continue
-			case info.Litdoc:
-				return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 			default:
-				cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
+				cell, _, err := static(b, nil)
+				if err != nil {
+					return nil, err
+				}
+				cells = append(cells, cell)
 			}
 		default:
-			cells = append(cells, MakeStaticCellFromRaw(renderStaticBlock(b)))
+			cell, _, err := static(b, nil)
+			if err != nil {
+				return nil, err
+			}
+			cells = append(cells, cell)
 		}
 		i++
 	}
 	return cells, nil
 }
 
-func renderStaticBlock(b Block) string {
+func RenderContent(content, indent string) string {
+	// todo: double check that I need this function
+	return RenderBlock(MakeBlockFromRaw(BlockKindFencedCode, content, indent, false))
+}
+
+func RenderBlock(b Block) string {
 	if len(b.indent) == 0 {
 		return b.content
 	}
 
 	lines := strings.Split(b.content, "\n")
 	var rendered strings.Builder
-	renderedIndent := renderIndent(b.indent)
+	renderedIndent := RenderIndent(b.indent)
 	blankLineIndent := blankBlockQuoteLinePrefix(b.indent)
 	for i, line := range lines {
 		if i == len(lines)-1 && len(line) == 0 {
@@ -151,24 +127,12 @@ func blankBlockQuoteLinePrefix(indent string) string {
 	return ""
 }
 
-func renderIndent(indent string) string {
+func RenderIndent(indent string) string {
 	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
 		prefixLen := idx + len("> ")
 		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
 	}
 	return strings.Repeat(" ", len(indent))
-}
-
-func leadingIndent(s string) string {
-	line := s
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		line = s[:i]
-	}
-	i := 0
-	for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
-		i++
-	}
-	return line[:i]
 }
 
 func Execute(cells []Cell) ([]Cell, error) {

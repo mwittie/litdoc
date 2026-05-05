@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 
 	"litdoc/internal"
+	"litdoc/internal/bash"
+	"litdoc/internal/static"
 
 	"github.com/spf13/cobra"
 )
@@ -18,7 +20,11 @@ var fileCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
-		data, err := internal.ProcessFile(path)
+		parsers := map[string]internal.CellParser{
+			"static": static.ParseStaticCell,
+			"bash":   bash.ParseBashCell,
+		}
+		data, err := internal.ProcessFile(path, parsers)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
