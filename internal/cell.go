@@ -25,18 +25,9 @@ type InfoString struct {
 	Litdoc bool
 }
 
-func ParseInfoString(b Block) InfoString {
-	firstLine := b.content
-	if i := strings.IndexByte(b.content, '\n'); i >= 0 {
-		firstLine = b.content[:i]
-	}
-	var raw string
-	switch b.kind {
-	case BlockKindFencedCode:
-		raw = strings.TrimLeft(firstLine, "`~")
-	case BlockKindHTMLComment:
-		raw = strings.TrimSpace(strings.TrimPrefix(firstLine, "<!--"))
-	default:
+func InfoStringFromBlock(b Block) InfoString {
+	raw := b.rawInfoString()
+	if raw == "" {
 		return InfoString{}
 	}
 	parts := strings.SplitN(raw, " | ", 2)
@@ -46,7 +37,6 @@ func ParseInfoString(b Block) InfoString {
 }
 
 func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
-	// todo: make sure all this gets tested
 	static, ok := parsers["static"]
 	if !ok {
 		return nil, fmt.Errorf("no static parser provided")
@@ -57,7 +47,7 @@ func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
 		b := blocks[i]
 		switch b.kind {
 		case BlockKindFencedCode, BlockKindHTMLComment:
-			info := ParseInfoString(b)
+			info := InfoStringFromBlock(b)
 			switch {
 			case info.Litdoc:
 				parser, ok := parsers[info.Lang]

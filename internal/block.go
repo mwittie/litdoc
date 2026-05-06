@@ -51,6 +51,21 @@ func (b Block) Content() string { return b.content }
 
 func (b Block) Continuation() bool { return b.continuation }
 
+func (b Block) rawInfoString() string {
+	firstLine := b.content
+	if i := strings.IndexByte(b.content, '\n'); i >= 0 {
+		firstLine = b.content[:i]
+	}
+	switch b.kind {
+	case BlockKindFencedCode:
+		return strings.TrimLeft(firstLine, "`~")
+	case BlockKindHTMLComment:
+		return strings.TrimSpace(strings.TrimPrefix(firstLine, "<!--"))
+	default:
+		return ""
+	}
+}
+
 func (b Block) Render() string {
 	if len(b.indent) == 0 {
 		return b.content

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseInfoString(t *testing.T) {
+func TestInfoStringFromBlock(t *testing.T) {
 	tests := []struct {
 		name  string
 		block internal.Block
@@ -153,7 +153,7 @@ func TestParseInfoString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := internal.ParseInfoString(tt.block)
+			got := internal.InfoStringFromBlock(tt.block)
 			assert.Equal(t, tt.want, got)
 		})
 	}
