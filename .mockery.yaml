@@ -11,3 +11,7 @@ packages:
         config:
           dir: ./internal/
           pkgname: internal_test
+      Runner:
+        config:
+          dir: ./internal/bash/
+          pkgname: bash_test
