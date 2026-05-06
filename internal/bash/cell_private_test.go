@@ -30,9 +30,9 @@ func TestMakeParserFromRaw(t *testing.T) {
 	runner := Runner{}
 
 	// when
-	p := makeParserFromRaw(runner, internal.OutputFromBlocks)
+	p := makeParserFromRaw(runner, internal.OutputParserFunc(internal.OutputFromBlocks))
 
 	// then
 	assert.Equal(t, runner, p.runner)
-	assert.NotNil(t, p.parseOutput)
+	assert.NotNil(t, p.outputParser)
 }

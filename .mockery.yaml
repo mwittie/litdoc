@@ -11,6 +11,10 @@ packages:
         config:
           dir: ./internal/
           pkgname: internal_test
+      OutputParser:
+        config:
+          dir: ./internal/bash/
+          pkgname: bash_test
       Runner:
         config:
           dir: ./internal/bash/

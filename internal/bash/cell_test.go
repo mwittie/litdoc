@@ -26,14 +26,11 @@ func TestParser_Parse(t *testing.T) {
 	t.Run("assembles cell from block and output", func(t *testing.T) {
 		// given
 		output := internal.MakeOutput("hello", "")
-		parseOutput := func(internal.Block, []internal.Block) (
-			internal.Output,
-			int,
-			error,
-		) {
-			return output, 3, nil
-		}
-		parser := bash.NewParserWith(nil, parseOutput)
+		outputParser := NewMockOutputParser(t)
+		outputParser.EXPECT().
+			Parse(block, []internal.Block(nil)).
+			Return(output, 3, nil)
+		parser := bash.NewParserWith(nil, outputParser)
 
 		// when
 		cell, consumed, err := parser.Parse(block, nil)
@@ -48,14 +45,11 @@ func TestParser_Parse(t *testing.T) {
 
 	t.Run("output parsing error is wrapped", func(t *testing.T) {
 		// given
-		parseOutput := func(internal.Block, []internal.Block) (
-			internal.Output,
-			int,
-			error,
-		) {
-			return internal.Output{}, 0, assert.AnError
-		}
-		parser := bash.NewParserWith(nil, parseOutput)
+		outputParser := NewMockOutputParser(t)
+		outputParser.EXPECT().
+			Parse(block, []internal.Block(nil)).
+			Return(internal.Output{}, 0, assert.AnError)
+		parser := bash.NewParserWith(nil, outputParser)
 
 		// when
 		_, _, err := parser.Parse(block, nil)
@@ -77,7 +71,9 @@ func TestCell_Execute(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		// given
 		runner := NewMockRunner(t)
-		runner.EXPECT().Run("echo hello\n").Return("hello\n", "", 0, nil)
+		runner.EXPECT().
+			Run("echo hello\n").
+			Return("hello\n", "", 0, nil)
 		cell := bash.MakeCellFromRaw(fencedCode, "", internal.MakeOutput("", ""), runner)
 
 		// when
@@ -93,7 +89,9 @@ func TestCell_Execute(t *testing.T) {
 	t.Run("non-zero exit code", func(t *testing.T) {
 		// given
 		runner := NewMockRunner(t)
-		runner.EXPECT().Run("echo hello\n").Return("", "bash: command not found\n", 127, nil)
+		runner.EXPECT().
+			Run("echo hello\n").
+			Return("", "bash: command not found\n", 127, nil)
 		cell := bash.MakeCellFromRaw(fencedCode, "", internal.MakeOutput("", ""), runner)
 
 		// when
@@ -107,7 +105,9 @@ func TestCell_Execute(t *testing.T) {
 	t.Run("exec error", func(t *testing.T) {
 		// given
 		runner := NewMockRunner(t)
-		runner.EXPECT().Run("echo hello\n").Return("", "", 0, assert.AnError)
+		runner.EXPECT().
+			Run("echo hello\n").
+			Return("", "", 0, assert.AnError)
 		cell := bash.MakeCellFromRaw(fencedCode, "", internal.MakeOutput("", ""), runner)
 
 		// when

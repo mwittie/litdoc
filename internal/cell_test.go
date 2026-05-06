@@ -560,7 +560,9 @@ func TestExecute(t *testing.T) {
 		// given
 		result := NewMockCell(t)
 		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(result, nil)
+		cell.EXPECT().
+			Execute().
+			Return(result, nil)
 		cells := []internal.Cell{cell}
 
 		// when
@@ -575,7 +577,9 @@ func TestExecute(t *testing.T) {
 	t.Run("cell.Execute fails", func(t *testing.T) {
 		// given
 		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(nil, assert.AnError)
+		cell.EXPECT().
+			Execute().
+			Return(nil, assert.AnError)
 		cells := []internal.Cell{cell}
 
 		// when
@@ -591,9 +595,13 @@ func TestCompose(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		// given
 		cell1 := NewMockCell(t)
-		cell1.EXPECT().Render().Return("hello", nil)
+		cell1.EXPECT().
+			Render().
+			Return("hello", nil)
 		cell2 := NewMockCell(t)
-		cell2.EXPECT().Render().Return(" world", nil)
+		cell2.EXPECT().
+			Render().
+			Return(" world", nil)
 		cells := []internal.Cell{cell1, cell2}
 
 		// when
@@ -607,7 +615,9 @@ func TestCompose(t *testing.T) {
 	t.Run("cell.Render fails", func(t *testing.T) {
 		// given
 		cell := NewMockCell(t)
-		cell.EXPECT().Render().Return("", assert.AnError)
+		cell.EXPECT().
+			Render().
+			Return("", assert.AnError)
 		cells := []internal.Cell{cell}
 
 		// when
