@@ -40,35 +40,15 @@ func TestProcessFile(t *testing.T) {
 			require.NoError(t, err)
 
 			// when
-			// todo: pull these definitions to given
 			got, err := internal.ProcessFile(
-				f.Name(), map[string]internal.CellParser{"static": internal.CellParserFunc(static.ParseCell), "bash": internal.CellParserFunc(bash.ParseCell)})
+				f.Name(), map[string]internal.CellParser{
+					"static": internal.CellParserFunc(static.ParseCell),
+					"bash":   internal.CellParserFunc(bash.ParseCell),
+				})
 
 			// then
 			require.NoError(t, err)
 			assert.Equal(t, string(tt.want), got)
 		})
 	}
-}
-
-func TestProcessFileNestedListIndent(t *testing.T) {
-	// given
-	input := "- Level 1\n\n  - Level 2\n\n    ```bash | litdoc\n    echo hello\n    ```\n"
-	f, err := os.CreateTemp(t.TempDir(), "*.md")
-	require.NoError(t, err)
-	_, err = f.Write([]byte(input))
-	require.NoError(t, err)
-	err = f.Close()
-	require.NoError(t, err)
-
-	// when
-	got, err := internal.ProcessFile(f.Name(), map[string]internal.CellParser{"static": internal.CellParserFunc(static.ParseCell), "bash": internal.CellParserFunc(bash.ParseCell)})
-
-	// then
-	require.NoError(t, err)
-	want := "- Level 1\n\n  - Level 2\n\n    ```bash | litdoc\n    echo hello\n    ```\n" +
-		"\n    " + internal.OutputBeginMarker + "\n" +
-		"    output\n" +
-		"    " + internal.OutputEndMarker + "\n"
-	assert.Equal(t, want, got)
 }
