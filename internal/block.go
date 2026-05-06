@@ -25,7 +25,7 @@ type Block struct {
 	// indent characters potentially nested blockquotes and lists
 	indent  string
 	content string
-	// continuation when preceding block is on the smame line
+	// continuation when a preceding block is on the same line
 	continuation bool
 }
 
@@ -51,7 +51,10 @@ func (b Block) Content() string { return b.content }
 
 func (b Block) Continuation() bool { return b.continuation }
 
-func (b Block) rawInfoString() string {
+// headerLine returns the text on the block's opening line after stripping
+// the syntactic delimiter (fence characters for fenced code blocks,
+// "<!--" for HTML comments).
+func (b Block) headerLine() string {
 	firstLine := b.content
 	if i := strings.IndexByte(b.content, '\n'); i >= 0 {
 		firstLine = b.content[:i]

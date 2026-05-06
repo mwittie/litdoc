@@ -26,7 +26,7 @@ type InfoString struct {
 }
 
 func InfoStringFromBlock(b Block) InfoString {
-	raw := b.rawInfoString()
+	raw := b.headerLine()
 	if raw == "" {
 		return InfoString{}
 	}
