@@ -14,22 +14,6 @@ type CellParser interface {
 	Parse(block Block, following []Block) (Cell, int, error)
 }
 
-type InfoString struct {
-	Lang   string
-	Litdoc bool
-}
-
-func InfoStringFromBlock(b Block) InfoString {
-	raw := b.headerLine()
-	if raw == "" {
-		return InfoString{}
-	}
-	parts := strings.SplitN(raw, " | ", 2)
-	lang := strings.TrimSpace(parts[0])
-	litdoc := len(parts) > 1 && strings.HasPrefix(strings.TrimSpace(parts[1]), "litdoc")
-	return InfoString{Lang: lang, Litdoc: litdoc}
-}
-
 func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
 	static, ok := parsers["static"]
 	if !ok {

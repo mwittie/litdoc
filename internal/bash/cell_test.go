@@ -114,6 +114,7 @@ func TestCell_Execute(t *testing.T) {
 		_, err := cell.Execute()
 
 		// then
+		require.ErrorContains(t, err, "running cell")
 		require.ErrorIs(t, err, assert.AnError)
 	})
 }
