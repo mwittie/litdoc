@@ -10,7 +10,15 @@ type Cell interface {
 	Render() (string, error)
 }
 
-type CellParser func(block Block, following []Block) (Cell, int, error)
+type CellParser interface {
+	Parse(block Block, following []Block) (Cell, int, error)
+}
+
+type CellParserFunc func(block Block, following []Block) (Cell, int, error)
+
+func (f CellParserFunc) Parse(block Block, following []Block) (Cell, int, error) {
+	return f(block, following)
+}
 
 type InfoString struct {
 	Lang   string
@@ -56,24 +64,24 @@ func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
 				if !ok {
 					return nil, fmt.Errorf("unsupported language: %q", info.Lang)
 				}
-				cell, consumed, err := parser(b, blocks[i+1:])
+				cell, consumed, err := parser.Parse(b, blocks[i+1:])
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("parsing %q cell: %w", info.Lang, err)
 				}
 				cells = append(cells, cell)
 				i += 1 + consumed
 				continue
 			default:
-				cell, _, err := static(b, nil)
+				cell, _, err := static.Parse(b, nil)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("parsing static, non-litdoc cell: %w", err)
 				}
 				cells = append(cells, cell)
 			}
 		default:
-			cell, _, err := static(b, nil)
+			cell, _, err := static.Parse(b, nil)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parsing static cell: %w", err)
 			}
 			cells = append(cells, cell)
 		}
@@ -90,6 +98,7 @@ func blankBlockQuoteLinePrefix(indent string) string {
 }
 
 func RenderIndent(indent string) string {
+	// todo: should this be in this file?
 	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
 		prefixLen := idx + len("> ")
 		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)

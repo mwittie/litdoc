@@ -8,9 +8,9 @@ import (
 	"litdoc/internal/static"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
 
 func TestParseInfoString(t *testing.T) {
 	tests := []struct {
@@ -158,7 +158,6 @@ func TestParseInfoString(t *testing.T) {
 		})
 	}
 }
-
 
 func TestExecute(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
@@ -505,8 +504,8 @@ func TestClassify(t *testing.T) {
 	}
 
 	parsers := map[string]internal.CellParser{
-		"static": static.ParseStaticCell,
-		"bash":   bash.ParseBashCell,
+		"static": internal.CellParserFunc(static.ParseStaticCell),
+		"bash":   internal.CellParserFunc(bash.ParseBashCell),
 	}
 
 	for _, tt := range tests {
@@ -536,6 +535,77 @@ func TestClassify(t *testing.T) {
 			assert.Equal(t, wantComposed, gotComposed)
 		})
 	}
+
+	t.Run("no static parser", func(t *testing.T) {
+		// when
+		_, err := internal.Classify(nil, map[string]internal.CellParser{})
+
+		// then
+		require.ErrorContains(t, err, "no static parser provided")
+	})
+
+	t.Run("litdoc parser fails", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			code("", "```bash | litdoc\necho hello\n```\n", false),
+		}
+		failingParser := NewMockCellParser(t)
+		failingParser.EXPECT().
+			Parse(mock.Anything, mock.Anything).
+			Return(nil, 0, assert.AnError)
+
+		// when
+		_, err := internal.Classify(blocks, map[string]internal.CellParser{
+			"static": internal.CellParserFunc(static.ParseStaticCell),
+			"bash":   failingParser,
+		})
+
+		// then
+		require.ErrorContains(t, err, `parsing "bash" cell`)
+		require.ErrorIs(t, err, assert.AnError)
+	})
+
+	t.Run("static parser fails", func(t *testing.T) {
+		t.Run("non-litdoc fenced code", func(t *testing.T) {
+			// given
+			blocks := []internal.Block{
+				code("", "```bash\necho hello\n```\n", false),
+			}
+			failingStatic := NewMockCellParser(t)
+			failingStatic.EXPECT().
+				Parse(mock.Anything, mock.Anything).
+				Return(nil, 0, assert.AnError)
+
+			// when
+			_, err := internal.Classify(blocks, map[string]internal.CellParser{
+				"static": failingStatic,
+				"bash":   internal.CellParserFunc(bash.ParseBashCell),
+			})
+
+			// then
+			require.ErrorContains(t, err, "parsing static, non-litdoc cell")
+			require.ErrorIs(t, err, assert.AnError)
+		})
+
+		t.Run("default block", func(t *testing.T) {
+			// given
+			blocks := []internal.Block{text("", "hello", false)}
+			failingStatic := NewMockCellParser(t)
+			failingStatic.EXPECT().
+				Parse(mock.Anything, mock.Anything).
+				Return(nil, 0, assert.AnError)
+
+			// when
+			_, err := internal.Classify(blocks, map[string]internal.CellParser{
+				"static": failingStatic,
+				"bash":   internal.CellParserFunc(bash.ParseBashCell),
+			})
+
+			// then
+			require.ErrorContains(t, err, "parsing static cell")
+			require.ErrorIs(t, err, assert.AnError)
+		})
+	})
 }
 
 func cellKind(cell internal.Cell) string {

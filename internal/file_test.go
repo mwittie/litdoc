@@ -42,7 +42,7 @@ func TestProcessFile(t *testing.T) {
 			// when
 			// todo: pull these definitions to given
 			got, err := internal.ProcessFile(
-				f.Name(), map[string]internal.CellParser{"static": static.ParseStaticCell, "bash": bash.ParseBashCell})
+				f.Name(), map[string]internal.CellParser{"static": internal.CellParserFunc(static.ParseStaticCell), "bash": internal.CellParserFunc(bash.ParseBashCell)})
 
 			// then
 			require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestProcessFileNestedListIndent(t *testing.T) {
 	require.NoError(t, err)
 
 	// when
-	got, err := internal.ProcessFile(f.Name(), map[string]internal.CellParser{"static": static.ParseStaticCell, "bash": bash.ParseBashCell})
+	got, err := internal.ProcessFile(f.Name(), map[string]internal.CellParser{"static": internal.CellParserFunc(static.ParseStaticCell), "bash": internal.CellParserFunc(bash.ParseBashCell)})
 
 	// then
 	require.NoError(t, err)

@@ -7,3 +7,7 @@ packages:
         config:
           dir: ./internal/
           pkgname: internal_test
+      CellParser:
+        config:
+          dir: ./internal/
+          pkgname: internal_test
