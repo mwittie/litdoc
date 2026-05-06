@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-
-
 func TestParser_Parse(t *testing.T) {
 	// given
 	block := internal.MakeBlockFromRaw(internal.BlockKindText, "hello", "", false)

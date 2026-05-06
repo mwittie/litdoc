@@ -74,4 +74,3 @@ func (c Cell) Execute() (internal.Cell, error) {
 func (c Cell) Render() (string, error) {
 	return c.block.Render() + c.output.Render(), nil
 }
-
