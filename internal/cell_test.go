@@ -4,39 +4,15 @@ import (
 	"testing"
 
 	"litdoc/internal"
+	"litdoc/internal/bash"
+	"litdoc/internal/static"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func TestStaticCell(t *testing.T) {
-	t.Run("renders raw content", func(t *testing.T) {
-		// given
-		content := "hello"
-		cell := internal.MakeStaticCellFromRaw(content)
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, content, gotContent)
-	})
-
-	t.Run("executes to itself", func(t *testing.T) {
-		// given
-		cell := internal.MakeStaticCellFromRaw("hello")
-
-		// when
-		gotCell, err := cell.Execute()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, cell, gotCell)
-	})
-}
-
-func TestParseInfoString(t *testing.T) {
+func TestInfoStringFromBlock(t *testing.T) {
 	tests := []struct {
 		name  string
 		block internal.Block
@@ -177,133 +153,10 @@ func TestParseInfoString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := internal.ParseInfoString(tt.block)
+			got := internal.InfoStringFromBlock(tt.block)
 			assert.Equal(t, tt.want, got)
 		})
 	}
-}
-
-func TestBashCell(t *testing.T) {
-	t.Run("without output", func(t *testing.T) {
-		// given
-		code := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		cell := internal.MakeBashCellFromRaw(code, internal.Output{})
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, code, gotContent)
-	})
-
-	t.Run("with output", func(t *testing.T) {
-		// given
-		fencedCode := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		output := internal.MakeOutput("hello")
-		cell := internal.MakeBashCellFromRaw(fencedCode, output)
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, fencedCode+output.Render(""), gotContent)
-	})
-
-	t.Run("execute produces stub output", func(t *testing.T) {
-		// given
-		fencedCode := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		cell := internal.MakeBashCellFromRaw(fencedCode, internal.Output{})
-
-		// when
-		gotCell, err := cell.Execute()
-
-		// then
-		require.NoError(t, err)
-		rendered, err := gotCell.Render()
-		require.NoError(t, err)
-		assert.Equal(t, fencedCode+internal.MakeOutput("output").Render(""), rendered)
-	})
-}
-
-func TestExecute(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
-		// given
-		result := NewMockCell(t)
-		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(result, nil)
-		cells := []internal.Cell{cell}
-
-		// when
-		gotCells, err := internal.Execute(cells)
-
-		// then
-		require.NoError(t, err)
-		require.Len(t, gotCells, 1)
-		assert.Equal(t, result, gotCells[0])
-	})
-
-	t.Run("cell.Execute fails", func(t *testing.T) {
-		// given
-		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(nil, assert.AnError)
-		cells := []internal.Cell{cell}
-
-		// when
-		_, err := internal.Execute(cells)
-
-		// then
-		require.ErrorContains(t, err, "executing cell")
-		require.ErrorIs(t, err, assert.AnError)
-	})
-}
-
-func TestCompose(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
-		// given
-		cell1 := NewMockCell(t)
-		cell1.EXPECT().Render().Return("hello", nil)
-		cell2 := NewMockCell(t)
-		cell2.EXPECT().Render().Return(" world", nil)
-		cells := []internal.Cell{cell1, cell2}
-
-		// when
-		got, err := internal.Compose(cells)
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, "hello world", got)
-	})
-
-	t.Run("cell.Render fails", func(t *testing.T) {
-		// given
-		cell := NewMockCell(t)
-		cell.EXPECT().Render().Return("", assert.AnError)
-		cells := []internal.Cell{cell}
-
-		// when
-		_, err := internal.Compose(cells)
-
-		// then
-		require.ErrorContains(t, err, "rendering cell")
-		require.ErrorIs(t, err, assert.AnError)
-	})
 }
 
 func TestClassify(t *testing.T) {
@@ -586,10 +439,15 @@ func TestClassify(t *testing.T) {
 		},
 	}
 
+	parsers := map[string]internal.CellParser{
+		"static": internal.CellParserFunc(static.ParseCell),
+		"bash":   internal.CellParserFunc(bash.ParseCell),
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// when
-			cells, err := internal.Classify(tt.blocks)
+			cells, err := internal.Classify(tt.blocks, parsers)
 
 			// then
 			if tt.wantErrText != "" {
@@ -613,15 +471,150 @@ func TestClassify(t *testing.T) {
 			assert.Equal(t, wantComposed, gotComposed)
 		})
 	}
+
+	t.Run("no static parser", func(t *testing.T) {
+		// when
+		_, err := internal.Classify(nil, map[string]internal.CellParser{})
+
+		// then
+		require.ErrorContains(t, err, "no static parser provided")
+	})
+
+	t.Run("litdoc parser fails", func(t *testing.T) {
+		// given
+		blocks := []internal.Block{
+			code("", "```bash | litdoc\necho hello\n```\n", false),
+		}
+		failingParser := NewMockCellParser(t)
+		failingParser.EXPECT().
+			Parse(mock.Anything, mock.Anything).
+			Return(nil, 0, assert.AnError)
+
+		// when
+		_, err := internal.Classify(blocks, map[string]internal.CellParser{
+			"static": internal.CellParserFunc(static.ParseCell),
+			"bash":   failingParser,
+		})
+
+		// then
+		require.ErrorContains(t, err, `parsing "bash" cell`)
+		require.ErrorIs(t, err, assert.AnError)
+	})
+
+	t.Run("static parser fails", func(t *testing.T) {
+		t.Run("non-litdoc fenced code", func(t *testing.T) {
+			// given
+			blocks := []internal.Block{
+				code("", "```bash\necho hello\n```\n", false),
+			}
+			failingStatic := NewMockCellParser(t)
+			failingStatic.EXPECT().
+				Parse(mock.Anything, mock.Anything).
+				Return(nil, 0, assert.AnError)
+
+			// when
+			_, err := internal.Classify(blocks, map[string]internal.CellParser{
+				"static": failingStatic,
+				"bash":   internal.CellParserFunc(bash.ParseCell),
+			})
+
+			// then
+			require.ErrorContains(t, err, "parsing static, non-litdoc cell")
+			require.ErrorIs(t, err, assert.AnError)
+		})
+
+		t.Run("default block", func(t *testing.T) {
+			// given
+			blocks := []internal.Block{text("", "hello", false)}
+			failingStatic := NewMockCellParser(t)
+			failingStatic.EXPECT().
+				Parse(mock.Anything, mock.Anything).
+				Return(nil, 0, assert.AnError)
+
+			// when
+			_, err := internal.Classify(blocks, map[string]internal.CellParser{
+				"static": failingStatic,
+				"bash":   internal.CellParserFunc(bash.ParseCell),
+			})
+
+			// then
+			require.ErrorContains(t, err, "parsing static cell")
+			require.ErrorIs(t, err, assert.AnError)
+		})
+	})
 }
 
 func cellKind(cell internal.Cell) string {
 	switch cell.(type) {
-	case internal.StaticCell:
+	case static.Cell:
 		return "StaticCell"
-	case internal.BashCell:
+	case bash.Cell:
 		return "BashCell"
 	default:
 		return "unknown"
 	}
+}
+
+func TestExecute(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		// given
+		result := NewMockCell(t)
+		cell := NewMockCell(t)
+		cell.EXPECT().Execute().Return(result, nil)
+		cells := []internal.Cell{cell}
+
+		// when
+		gotCells, err := internal.Execute(cells)
+
+		// then
+		require.NoError(t, err)
+		require.Len(t, gotCells, 1)
+		assert.Equal(t, result, gotCells[0])
+	})
+
+	t.Run("cell.Execute fails", func(t *testing.T) {
+		// given
+		cell := NewMockCell(t)
+		cell.EXPECT().Execute().Return(nil, assert.AnError)
+		cells := []internal.Cell{cell}
+
+		// when
+		_, err := internal.Execute(cells)
+
+		// then
+		require.ErrorContains(t, err, "executing cell")
+		require.ErrorIs(t, err, assert.AnError)
+	})
+}
+
+func TestCompose(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		// given
+		cell1 := NewMockCell(t)
+		cell1.EXPECT().Render().Return("hello", nil)
+		cell2 := NewMockCell(t)
+		cell2.EXPECT().Render().Return(" world", nil)
+		cells := []internal.Cell{cell1, cell2}
+
+		// when
+		got, err := internal.Compose(cells)
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, "hello world", got)
+	})
+
+	t.Run("cell.Render fails", func(t *testing.T) {
+		// given
+		cell := NewMockCell(t)
+		cell.EXPECT().Render().Return("", assert.AnError)
+		cells := []internal.Cell{cell}
+
+		// when
+		_, err := internal.Compose(cells)
+
+		// then
+		require.ErrorContains(t, err, "rendering cell")
+		require.ErrorIs(t, err, assert.AnError)
+	})
 }

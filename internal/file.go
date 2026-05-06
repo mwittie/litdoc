@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func ProcessFile(srcFilePath string) (string, error) {
+func ProcessFile(srcFilePath string, parsers map[string]CellParser) (string, error) {
 	srcContent, err := os.ReadFile(srcFilePath)
 	if err != nil {
 		return "", fmt.Errorf("reading source file: %w", err)
@@ -16,7 +16,7 @@ func ProcessFile(srcFilePath string) (string, error) {
 		return "", fmt.Errorf("parsing source file: %w", err)
 	}
 
-	cells, err := Classify(blocks)
+	cells, err := Classify(blocks, parsers)
 	if err != nil {
 		return "", fmt.Errorf("classifying blocks into cells: %w", err)
 	}

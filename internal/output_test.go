@@ -14,10 +14,10 @@ func TestMakeOutput(t *testing.T) {
 	content := "hello"
 
 	// when
-	got := internal.MakeOutput(content)
+	got := internal.MakeOutput(content, "")
 
 	// then
-	assert.Contains(t, got.Render(""), content)
+	assert.Contains(t, got.Render(), content)
 }
 
 func TestOutput_RenderWithIndent(t *testing.T) {
@@ -26,10 +26,10 @@ func TestOutput_RenderWithIndent(t *testing.T) {
 	indent := "  "
 
 	// when
-	got := internal.MakeOutput(content)
+	got := internal.MakeOutput(content, indent)
 
 	// then
-	assert.Contains(t, got.Render(indent), indent+content)
+	assert.Contains(t, got.Render(), indent+content)
 }
 
 func TestOutput_Render(t *testing.T) {
@@ -106,10 +106,10 @@ func TestOutput_Render(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// given
-			output := internal.MakeOutput(tt.content)
+			output := internal.MakeOutput(tt.content, tt.indent)
 
 			// when
-			got := output.Render(tt.indent)
+			got := output.Render()
 
 			// then
 			assert.Equal(t, tt.want, got)
@@ -119,7 +119,7 @@ func TestOutput_Render(t *testing.T) {
 
 func TestOutputFromBlocks(t *testing.T) {
 	wantOutput := func(indent, content string) string {
-		return internal.MakeOutput(content).Render(indent)
+		return internal.MakeOutput(content, indent).Render()
 	}
 
 	t.Run("output block is scanned in", func(t *testing.T) {
@@ -136,7 +136,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput("", "hello"), output.Render(""))
+		assert.Equal(t, wantOutput("", "hello"), output.Render())
 		assert.Equal(t, 3, consumed)
 	})
 
@@ -155,7 +155,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput("", "hello"), output.Render(""))
+		assert.Equal(t, wantOutput("", "hello"), output.Render())
 		assert.Equal(t, 4, consumed)
 	})
 
@@ -173,7 +173,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput("    ", "hello\nworld"), output.Render("    "))
+		assert.Equal(t, wantOutput("    ", "hello\nworld"), output.Render())
 		assert.Equal(t, 3, consumed)
 	})
 
@@ -197,7 +197,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput(" ", "output"), output.Render(" "))
+		assert.Equal(t, wantOutput(" ", "output"), output.Render())
 		assert.Equal(t, 8, consumed)
 	})
 
@@ -220,7 +220,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput("  ", "hello\nworld"), output.Render("  "))
+		assert.Equal(t, wantOutput("  ", "hello\nworld"), output.Render())
 		assert.Equal(t, 8, consumed)
 	})
 
@@ -239,7 +239,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, wantOutput("  ", "hello"), output.Render("  "))
+		assert.Equal(t, wantOutput("  ", "hello"), output.Render())
 		assert.Equal(t, 4, consumed)
 	})
 
@@ -336,7 +336,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "", output.Render(""))
+		assert.Equal(t, "", output.Render())
 		assert.Equal(t, 0, consumed)
 	})
 
@@ -349,7 +349,7 @@ func TestOutputFromBlocks(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, "", output.Render(""))
+		assert.Equal(t, "", output.Render())
 		assert.Equal(t, 0, consumed)
 	})
 

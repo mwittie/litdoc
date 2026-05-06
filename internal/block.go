@@ -25,7 +25,7 @@ type Block struct {
 	// indent characters potentially nested blockquotes and lists
 	indent  string
 	content string
-	// continuation when preceding block is on the smame line
+	// continuation when a preceding block is on the same line
 	continuation bool
 }
 
@@ -51,8 +51,70 @@ func (b Block) Content() string { return b.content }
 
 func (b Block) Continuation() bool { return b.continuation }
 
-func (b Block) String() string {
-	return fmt.Sprintf("{%s %q}", b.kind, b.content)
+// headerLine returns the text on the block's opening line after stripping
+// the syntactic delimiter (fence characters for fenced code blocks,
+// "<!--" for HTML comments).
+func (b Block) headerLine() string {
+	firstLine := b.content
+	if i := strings.IndexByte(b.content, '\n'); i >= 0 {
+		firstLine = b.content[:i]
+	}
+	switch b.kind {
+	case BlockKindFencedCode:
+		return strings.TrimLeft(firstLine, "`~")
+	case BlockKindHTMLComment:
+		return strings.TrimSpace(strings.TrimPrefix(firstLine, "<!--"))
+	default:
+		return ""
+	}
+}
+
+func blankBlockQuoteLinePrefix(indent string) string {
+	if idx := strings.LastIndex(indent, ">"); idx >= 0 {
+		return indent[:idx+1]
+	}
+	return ""
+}
+
+func RenderIndent(indent string) string {
+	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
+		prefixLen := idx + len("> ")
+		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
+	}
+	return strings.Repeat(" ", len(indent))
+}
+
+func (b Block) Render() string {
+	if len(b.indent) == 0 {
+		return b.content
+	}
+
+	lines := strings.Split(b.content, "\n")
+	var rendered strings.Builder
+	renderedIndent := RenderIndent(b.indent)
+	blankLineIndent := blankBlockQuoteLinePrefix(b.indent)
+	for i, line := range lines {
+		if i == len(lines)-1 && len(line) == 0 {
+			break
+		}
+		if i > 0 {
+			rendered.WriteByte('\n')
+		}
+		if len(line) == 0 {
+			rendered.WriteString(blankLineIndent)
+			continue
+		}
+		if i > 0 {
+			rendered.WriteString(renderedIndent)
+		} else if !b.continuation {
+			rendered.WriteString(b.indent)
+		}
+		rendered.WriteString(line)
+	}
+	if strings.HasSuffix(b.content, "\n") {
+		rendered.WriteByte('\n')
+	}
+	return rendered.String()
 }
 
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
@@ -181,7 +243,7 @@ func (c *blockCollector) appendTextGap(end uint32, stripPrefix, indent []byte) {
 	}
 	gap := stripIndent(c.content[c.pos:end], stripPrefix)
 	if len(bytes.TrimSpace(gap)) == 0 {
-		indent = []byte(renderIndent(string(indent)))
+		indent = []byte(RenderIndent(string(indent)))
 	}
 	c.appendBlock(BlockKindText, gap, indent)
 }
@@ -291,7 +353,7 @@ func blockPrefixes(
 // continuation indent) rather than the rendered block indent. Detect this case
 // and return the rendered indent so the marker is classified correctly.
 func normalizeHTMLCommentPrefix(raw, linePrefix, containerIndent []byte) ([]byte, bool) {
-	renderedIndent := []byte(renderIndent(string(containerIndent)))
+	renderedIndent := []byte(RenderIndent(string(containerIndent)))
 	if !bytes.HasPrefix(linePrefix, renderedIndent) {
 		return nil, false
 	}

@@ -1,7 +1,7 @@
 GO ?= go
 
 .PHONY: pre-pr
-pre-pr: clean mock fmt-check vet test
+pre-pr: clean mock fmt-check lint vet test
 
 .PHONY: fmt
 fmt:
@@ -19,6 +19,10 @@ fmt-check:
 .PHONY: vet
 vet:
 	@$(GO) vet ./...
+
+.PHONY: lint
+lint: vendor
+	@golangci-lint run ./...
 
 .PHONY: mock
 mock:
