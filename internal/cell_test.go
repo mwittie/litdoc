@@ -440,8 +440,8 @@ func TestClassify(t *testing.T) {
 	}
 
 	parsers := map[string]internal.CellParser{
-		"static": internal.CellParserFunc(static.ParseCell),
-		"bash":   internal.CellParserFunc(bash.ParseCell),
+		"static": static.NewParser(),
+		"bash":   bash.NewParser(bash.Runner{}),
 	}
 
 	for _, tt := range tests {
@@ -492,7 +492,7 @@ func TestClassify(t *testing.T) {
 
 		// when
 		_, err := internal.Classify(blocks, map[string]internal.CellParser{
-			"static": internal.CellParserFunc(static.ParseCell),
+			"static": static.NewParser(),
 			"bash":   failingParser,
 		})
 
@@ -515,7 +515,7 @@ func TestClassify(t *testing.T) {
 			// when
 			_, err := internal.Classify(blocks, map[string]internal.CellParser{
 				"static": failingStatic,
-				"bash":   internal.CellParserFunc(bash.ParseCell),
+				"bash":   bash.NewParser(bash.Runner{}),
 			})
 
 			// then
@@ -534,7 +534,7 @@ func TestClassify(t *testing.T) {
 			// when
 			_, err := internal.Classify(blocks, map[string]internal.CellParser{
 				"static": failingStatic,
-				"bash":   internal.CellParserFunc(bash.ParseCell),
+				"bash":   bash.NewParser(bash.Runner{}),
 			})
 
 			// then

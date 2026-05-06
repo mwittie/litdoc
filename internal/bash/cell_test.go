@@ -15,7 +15,6 @@ func joinLines(lines ...string) string {
 	return strings.Join(lines, "\n")
 }
 
-
 func TestMakeCellFromRaw(t *testing.T) {
 	// given
 	code := joinLines(
@@ -35,7 +34,7 @@ func TestMakeCellFromRaw(t *testing.T) {
 	assert.Equal(t, "```bash\necho hello\n```\n"+output.Render(), got)
 }
 
-func TestParseCellWith(t *testing.T) {
+func TestParse(t *testing.T) {
 	block := internal.MakeBlockFromRaw(internal.BlockKindFencedCode, joinLines(
 		"```bash",
 		"echo hello",
@@ -49,9 +48,10 @@ func TestParseCellWith(t *testing.T) {
 		parseOutput := func(internal.Block, []internal.Block) (internal.Output, int, error) {
 			return output, 3, nil
 		}
+		parser := bash.NewParserWith(nil, parseOutput)
 
 		// when
-		cell, consumed, err := bash.ParseCellWith(block, nil, parseOutput, nil)
+		cell, consumed, err := parser.Parse(block, nil)
 
 		// then
 		require.NoError(t, err)
@@ -66,9 +66,10 @@ func TestParseCellWith(t *testing.T) {
 		parseOutput := func(internal.Block, []internal.Block) (internal.Output, int, error) {
 			return internal.Output{}, 0, assert.AnError
 		}
+		parser := bash.NewParserWith(nil, parseOutput)
 
 		// when
-		_, _, err := bash.ParseCellWith(block, nil, parseOutput, nil)
+		_, _, err := parser.Parse(block, nil)
 
 		// then
 		require.ErrorContains(t, err, "parsing output")

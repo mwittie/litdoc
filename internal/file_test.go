@@ -42,8 +42,8 @@ func TestProcessFile(t *testing.T) {
 			// when
 			got, err := internal.ProcessFile(
 				f.Name(), map[string]internal.CellParser{
-					"static": internal.CellParserFunc(static.ParseCell),
-					"bash":   internal.CellParserFunc(bash.ParseCell),
+					"static": static.NewParser(),
+					"bash":   bash.NewParser(bash.Runner{}),
 				})
 
 			// then

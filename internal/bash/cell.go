@@ -13,7 +13,7 @@ type Cell struct {
 	runner internal.Runner
 }
 
-func MakeCellFromRaw(
+func makeCellFromRaw(
 	content, indent string,
 	output internal.Output,
 	runner internal.Runner,
@@ -25,32 +25,35 @@ func MakeCellFromRaw(
 	}
 }
 
-func ParseCell(
-	block internal.Block,
-	following []internal.Block,
-) (
-	internal.Cell,
-	int,
-	error,
-) {
-	return parseCellWith(block, following, internal.OutputFromBlocks, Runner{})
+type Parser struct {
+	runner      internal.Runner
+	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error)
 }
 
-func parseCellWith(
+func NewParser(runner internal.Runner) Parser {
+	return Parser{runner: runner, parseOutput: internal.OutputFromBlocks}
+}
+
+func newParserWith(
+	runner internal.Runner,
+	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error),
+) Parser {
+	return Parser{runner: runner, parseOutput: parseOutput}
+}
+
+func (p Parser) Parse(
 	block internal.Block,
 	following []internal.Block,
-	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error),
-	runner internal.Runner,
 ) (
 	internal.Cell,
 	int,
 	error,
 ) {
-	output, consumed, err := parseOutput(block, following)
+	output, consumed, err := p.parseOutput(block, following)
 	if err != nil {
 		return nil, 0, fmt.Errorf("parsing output: %w", err)
 	}
-	return Cell{block: block, output: output, runner: runner}, consumed, nil
+	return Cell{block: block, output: output, runner: p.runner}, consumed, nil
 }
 
 func (c Cell) Execute() (internal.Cell, error) {

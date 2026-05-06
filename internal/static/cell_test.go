@@ -22,12 +22,12 @@ func TestMakeCellFromRaw(t *testing.T) {
 	assert.Equal(t, "hello", got)
 }
 
-func TestParseCell(t *testing.T) {
+func TestParse(t *testing.T) {
 	// given
 	block := internal.MakeBlockFromRaw(internal.BlockKindText, "hello", "", false)
 
 	// when
-	cell, consumed, err := static.ParseCell(block, nil)
+	cell, consumed, err := static.NewParser().Parse(block, nil)
 
 	// then
 	require.NoError(t, err)

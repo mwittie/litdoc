@@ -14,11 +14,6 @@ type CellParser interface {
 	Parse(block Block, following []Block) (Cell, int, error)
 }
 
-type CellParserFunc func(block Block, following []Block) (Cell, int, error)
-
-func (f CellParserFunc) Parse(block Block, following []Block) (Cell, int, error) {
-	return f(block, following)
-}
 
 type InfoString struct {
 	Lang   string
