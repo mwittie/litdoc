@@ -10,6 +10,16 @@ const (
 	OutputEndMarker   = "<!-- END LITDOC OUTPUT -->"
 )
 
+type OutputParser interface {
+	Parse(litdoc Block, following []Block) (Output, int, error)
+}
+
+type OutputParserFunc func(litdoc Block, following []Block) (Output, int, error)
+
+func (f OutputParserFunc) Parse(litdoc Block, following []Block) (Output, int, error) {
+	return f(litdoc, following)
+}
+
 type Output struct {
 	block Block
 }

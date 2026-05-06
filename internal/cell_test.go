@@ -12,153 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInfoStringFromBlock(t *testing.T) {
-	tests := []struct {
-		name  string
-		block internal.Block
-		want  internal.InfoString
-	}{
-		{
-			name:  "text block",
-			block: text("", "hello", false),
-			want:  internal.InfoString{},
-		},
-		{
-			name: "fenced code/backtick/without-litdoc",
-			block: code(
-				"",
-				joinLines(
-					"```bash",
-					"echo hello",
-					"```",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "bash"},
-		},
-		{
-			name: "fenced code/backtick/with-litdoc",
-			block: code(
-				"",
-				joinLines(
-					"```bash | litdoc",
-					"echo hello",
-					"```",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "bash", Litdoc: true},
-		},
-		{
-			name: "fenced code/tilde/with-litdoc",
-			block: code(
-				"",
-				joinLines(
-					"~~~sh | litdoc",
-					"echo hello",
-					"~~~",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "sh", Litdoc: true},
-		},
-		{
-			name: "fenced code/no-info-string",
-			block: code(
-				"",
-				joinLines(
-					"```",
-					"echo hello",
-					"```",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{},
-		},
-		{
-			name: "fenced code/trims-language",
-			block: code(
-				"",
-				joinLines(
-					"```  bash  | litdoc",
-					"echo hello",
-					"```",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "bash", Litdoc: true},
-		},
-		{
-			name: "fenced code/litdoc-prefix",
-			block: code(
-				"",
-				joinLines(
-					"```bash | litdoc-output",
-					"echo hello",
-					"```",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "bash", Litdoc: true},
-		},
-		{
-			name: "html comment/without-litdoc",
-			block: cmnt(
-				"",
-				joinLines(
-					"<!-- bash",
-					"echo hello",
-					"-->",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "bash"},
-		},
-		{
-			name: "html comment/with-litdoc",
-			block: cmnt(
-				"",
-				joinLines(
-					"<!-- bash | litdoc",
-					"echo hello",
-					"-->",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "bash", Litdoc: true},
-		},
-		{
-			name: "html comment/unsupported-litdoc-language",
-			block: cmnt(
-				"",
-				joinLines(
-					"<!-- go | litdoc",
-					"fmt.Println()",
-					"-->",
-					"",
-				),
-				false,
-			),
-			want: internal.InfoString{Lang: "go", Litdoc: true},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := internal.InfoStringFromBlock(tt.block)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestClassify(t *testing.T) {
 	type wantCell struct {
 		kind     string
@@ -440,8 +293,8 @@ func TestClassify(t *testing.T) {
 	}
 
 	parsers := map[string]internal.CellParser{
-		"static": internal.CellParserFunc(static.ParseCell),
-		"bash":   internal.CellParserFunc(bash.ParseCell),
+		"static": static.NewParser(),
+		"bash":   bash.MakeParser(),
 	}
 
 	for _, tt := range tests {
@@ -492,7 +345,7 @@ func TestClassify(t *testing.T) {
 
 		// when
 		_, err := internal.Classify(blocks, map[string]internal.CellParser{
-			"static": internal.CellParserFunc(static.ParseCell),
+			"static": static.NewParser(),
 			"bash":   failingParser,
 		})
 
@@ -515,7 +368,7 @@ func TestClassify(t *testing.T) {
 			// when
 			_, err := internal.Classify(blocks, map[string]internal.CellParser{
 				"static": failingStatic,
-				"bash":   internal.CellParserFunc(bash.ParseCell),
+				"bash":   bash.MakeParser(),
 			})
 
 			// then
@@ -534,7 +387,7 @@ func TestClassify(t *testing.T) {
 			// when
 			_, err := internal.Classify(blocks, map[string]internal.CellParser{
 				"static": failingStatic,
-				"bash":   internal.CellParserFunc(bash.ParseCell),
+				"bash":   bash.MakeParser(),
 			})
 
 			// then
@@ -560,7 +413,9 @@ func TestExecute(t *testing.T) {
 		// given
 		result := NewMockCell(t)
 		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(result, nil)
+		cell.EXPECT().
+			Execute().
+			Return(result, nil)
 		cells := []internal.Cell{cell}
 
 		// when
@@ -575,7 +430,9 @@ func TestExecute(t *testing.T) {
 	t.Run("cell.Execute fails", func(t *testing.T) {
 		// given
 		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(nil, assert.AnError)
+		cell.EXPECT().
+			Execute().
+			Return(nil, assert.AnError)
 		cells := []internal.Cell{cell}
 
 		// when
@@ -591,9 +448,13 @@ func TestCompose(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		// given
 		cell1 := NewMockCell(t)
-		cell1.EXPECT().Render().Return("hello", nil)
+		cell1.EXPECT().
+			Render().
+			Return("hello", nil)
 		cell2 := NewMockCell(t)
-		cell2.EXPECT().Render().Return(" world", nil)
+		cell2.EXPECT().
+			Render().
+			Return(" world", nil)
 		cells := []internal.Cell{cell1, cell2}
 
 		// when
@@ -607,7 +468,9 @@ func TestCompose(t *testing.T) {
 	t.Run("cell.Render fails", func(t *testing.T) {
 		// given
 		cell := NewMockCell(t)
-		cell.EXPECT().Render().Return("", assert.AnError)
+		cell.EXPECT().
+			Render().
+			Return("", assert.AnError)
 		cells := []internal.Cell{cell}
 
 		// when

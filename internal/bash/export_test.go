@@ -1,3 +1,4 @@
 package bash
 
-var ParseCellWith = parseCellWith
+var MakeCellFromRaw = makeCellFromRaw
+var NewParserWith = makeParserFromRaw

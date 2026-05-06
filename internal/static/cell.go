@@ -6,11 +6,17 @@ type Cell struct {
 	block internal.Block
 }
 
-func MakeCellFromRaw(content string) Cell {
+func makeCellFromRaw(content string) Cell {
 	return Cell{block: internal.MakeBlockFromRaw(internal.BlockKindText, content, "", false)}
 }
 
-func ParseCell(
+type Parser struct{}
+
+func NewParser() Parser {
+	return Parser{}
+}
+
+func (p Parser) Parse(
 	block internal.Block,
 	_ []internal.Block,
 ) (

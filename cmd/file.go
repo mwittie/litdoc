@@ -21,8 +21,8 @@ var fileCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]
 		parsers := map[string]internal.CellParser{
-			"static": internal.CellParserFunc(static.ParseCell),
-			"bash":   internal.CellParserFunc(bash.ParseCell),
+			"static": static.NewParser(),
+			"bash":   bash.MakeParser(),
 		}
 		data, err := internal.ProcessFile(path, parsers)
 		if err != nil {

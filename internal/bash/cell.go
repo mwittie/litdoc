@@ -2,6 +2,7 @@ package bash
 
 import (
 	"fmt"
+	"strings"
 
 	"litdoc/internal"
 )
@@ -9,46 +10,64 @@ import (
 type Cell struct {
 	block  internal.Block
 	output internal.Output
+	runner internal.Runner
 }
 
-func MakeCellFromRaw(content, indent string, output internal.Output) Cell {
+func makeCellFromRaw(
+	content, indent string,
+	output internal.Output,
+	runner internal.Runner,
+) Cell {
 	return Cell{
 		block:  internal.MakeBlockFromRaw(internal.BlockKindFencedCode, content, indent, false),
 		output: output,
+		runner: runner,
 	}
 }
 
-func ParseCell(
-	block internal.Block,
-	following []internal.Block,
-) (
-	internal.Cell,
-	int,
-	error,
-) {
-	return parseCellWith(block, following, internal.OutputFromBlocks)
+type Parser struct {
+	runner       internal.Runner
+	outputParser internal.OutputParser
 }
 
-func parseCellWith(
+func MakeParser() Parser {
+	return makeParserFromRaw(Runner{}, internal.OutputParserFunc(internal.OutputFromBlocks))
+}
+
+func makeParserFromRaw(
+	runner internal.Runner,
+	outputParser internal.OutputParser,
+) Parser {
+	return Parser{runner: runner, outputParser: outputParser}
+}
+
+func (p Parser) Parse(
 	block internal.Block,
 	following []internal.Block,
-	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error),
 ) (
 	internal.Cell,
 	int,
 	error,
 ) {
-	output, consumed, err := parseOutput(block, following)
+	output, consumed, err := p.outputParser.Parse(block, following)
 	if err != nil {
 		return nil, 0, fmt.Errorf("parsing output: %w", err)
 	}
-	return Cell{block: block, output: output}, consumed, nil
+	return Cell{block: block, output: output, runner: p.runner}, consumed, nil
 }
 
 func (c Cell) Execute() (internal.Cell, error) {
+	stdout, stderr, exitCode, err := c.runner.Run(internal.CodeBody(c.block.Content()))
+	if err != nil {
+		return nil, fmt.Errorf("running cell: %w", err)
+	}
+	if exitCode != 0 {
+		return nil, fmt.Errorf("exit status %d: %s", exitCode, strings.TrimSpace(stderr))
+	}
 	return Cell{
 		block:  c.block,
-		output: internal.MakeOutput("output", c.block.Indent()),
+		runner: c.runner,
+		output: internal.MakeOutput(stdout, c.block.Indent()),
 	}, nil
 }
 

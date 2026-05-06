@@ -33,7 +33,7 @@ echo "hello, world"
 ```
 
 <!-- BEGIN LITDOC OUTPUT -->
-output
+hello, world
 <!-- END LITDOC OUTPUT -->
 
 - HTML comment
@@ -43,7 +43,7 @@ echo "something to run"
 -->
 
 <!-- BEGIN LITDOC OUTPUT -->
-output
+something to run
 <!-- END LITDOC OUTPUT -->
 
 - Fenced code block with previously generated output
@@ -53,7 +53,7 @@ echo "hello, world"
 ```
 
 <!-- BEGIN LITDOC OUTPUT -->
-output
+hello, world
 <!-- END LITDOC OUTPUT -->
 
 - Indented code block
@@ -63,7 +63,7 @@ output
   ```
 
   <!-- BEGIN LITDOC OUTPUT -->
-  output
+  hello, world
   <!-- END LITDOC OUTPUT -->
 
 - Indented code block with previously generated output
@@ -73,7 +73,7 @@ output
   ```
 
   <!-- BEGIN LITDOC OUTPUT -->
-  output
+  hello, world
   <!-- END LITDOC OUTPUT -->
 
 > Block quoted fenced code block with previously generated output
@@ -83,7 +83,7 @@ output
 > ```
 >
 > <!-- BEGIN LITDOC OUTPUT -->
-> output
+> hello, world
 > <!-- END LITDOC OUTPUT -->
 
 ### Fenced code block indentation cases
@@ -95,7 +95,7 @@ Fenced code block indented one space:
  ```
 
  <!-- BEGIN LITDOC OUTPUT -->
- output
+ hello, world
  <!-- END LITDOC OUTPUT -->
 
 Fenced code block indented three spaces:
@@ -105,7 +105,7 @@ Fenced code block indented three spaces:
    ```
 
    <!-- BEGIN LITDOC OUTPUT -->
-   output
+   hello, world
    <!-- END LITDOC OUTPUT -->
 
 > Block quoted fenced code block
@@ -115,7 +115,7 @@ Fenced code block indented three spaces:
 > ```
 >
 > <!-- BEGIN LITDOC OUTPUT -->
-> output
+> hello, world
 > <!-- END LITDOC OUTPUT -->
 
 > Nested block quoted fenced code block
@@ -125,7 +125,7 @@ Fenced code block indented three spaces:
 > > ```
 > >
 > > <!-- BEGIN LITDOC OUTPUT -->
-> > output
+> > hello, world
 > > <!-- END LITDOC OUTPUT -->
 
 Fenced code block in an unordered list:
@@ -135,7 +135,7 @@ Fenced code block in an unordered list:
   ```
 
   <!-- BEGIN LITDOC OUTPUT -->
-  output
+  hello, world
   <!-- END LITDOC OUTPUT -->
 
 Fenced code block in a nested unordered list:
@@ -145,7 +145,7 @@ Fenced code block in a nested unordered list:
     ```
 
     <!-- BEGIN LITDOC OUTPUT -->
-    output
+    hello, world
     <!-- END LITDOC OUTPUT -->
 
 Fenced code block in a plus list with a tilde fence:
@@ -155,7 +155,7 @@ Fenced code block in a plus list with a tilde fence:
   ~~~
 
   <!-- BEGIN LITDOC OUTPUT -->
-  output
+  hello, world
   <!-- END LITDOC OUTPUT -->
 
 Fenced code block in an ordered list:
@@ -165,7 +165,7 @@ Fenced code block in an ordered list:
    ```
 
    <!-- BEGIN LITDOC OUTPUT -->
-   output
+   hello, world
    <!-- END LITDOC OUTPUT -->
 
 Fenced code block in a nested ordered list:
@@ -175,7 +175,7 @@ Fenced code block in a nested ordered list:
       ```
 
       <!-- BEGIN LITDOC OUTPUT -->
-      output
+      hello, world
       <!-- END LITDOC OUTPUT -->
 
 Fenced code block in a list blockquote:
@@ -185,7 +185,7 @@ Fenced code block in a list blockquote:
   > ```
   >
   > <!-- BEGIN LITDOC OUTPUT -->
-  > output
+  > hello, world
   > <!-- END LITDOC OUTPUT -->
 
 > Fenced code block in a blockquote nested list:
@@ -195,7 +195,7 @@ Fenced code block in a list blockquote:
 >     ```
 >
 >     <!-- BEGIN LITDOC OUTPUT -->
->     output
+>     hello, world
 >     <!-- END LITDOC OUTPUT -->
 
 > Fenced code block in a blockquote ordered list:
@@ -205,7 +205,7 @@ Fenced code block in a list blockquote:
 >    ```
 >
 >    <!-- BEGIN LITDOC OUTPUT -->
->    output
+>    hello, world
 >    <!-- END LITDOC OUTPUT -->
 
 ### HTML comment indentation cases
@@ -217,7 +217,7 @@ Fenced code block in a list blockquote:
 > -->
 >
 > <!-- BEGIN LITDOC OUTPUT -->
-> output
+> hello, world
 > <!-- END LITDOC OUTPUT -->
 
 > Nested block quoted HTML comment
@@ -227,7 +227,7 @@ Fenced code block in a list blockquote:
 > > -->
 > >
 > > <!-- BEGIN LITDOC OUTPUT -->
-> > output
+> > hello, world
 > > <!-- END LITDOC OUTPUT -->
 
 HTML comment in an unordered list:
@@ -237,7 +237,7 @@ HTML comment in an unordered list:
   -->
 
   <!-- BEGIN LITDOC OUTPUT -->
-  output
+  hello, world
   <!-- END LITDOC OUTPUT -->
 
 HTML comment in a nested unordered list:
@@ -247,7 +247,7 @@ HTML comment in a nested unordered list:
     -->
 
     <!-- BEGIN LITDOC OUTPUT -->
-    output
+    hello, world
     <!-- END LITDOC OUTPUT -->
 
 HTML comment in a star list:
@@ -257,7 +257,7 @@ HTML comment in a star list:
   -->
 
   <!-- BEGIN LITDOC OUTPUT -->
-  output
+  hello, world
   <!-- END LITDOC OUTPUT -->
 
 HTML comment in an ordered list:
@@ -267,7 +267,7 @@ HTML comment in an ordered list:
    -->
 
    <!-- BEGIN LITDOC OUTPUT -->
-   output
+   hello, world
    <!-- END LITDOC OUTPUT -->
 
 > HTML comment in a blockquote list:
@@ -277,7 +277,7 @@ HTML comment in an ordered list:
 >   -->
 >
 >   <!-- BEGIN LITDOC OUTPUT -->
->   output
+>   hello, world
 >   <!-- END LITDOC OUTPUT -->
 
 > HTML comment in a nested blockquote list:
@@ -287,7 +287,7 @@ HTML comment in an ordered list:
 > >   -->
 > >
 > >   <!-- BEGIN LITDOC OUTPUT -->
-> >   output
+> >   hello, world
 > >   <!-- END LITDOC OUTPUT -->
 
 HTML comment in an ordered-list blockquote:
@@ -297,5 +297,5 @@ HTML comment in an ordered-list blockquote:
    > -->
    >
    > <!-- BEGIN LITDOC OUTPUT -->
-   > output
+   > hello, world
    > <!-- END LITDOC OUTPUT -->
