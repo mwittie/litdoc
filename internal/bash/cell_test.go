@@ -24,7 +24,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		cell := bash.MakeBashCellFromRaw(code, "", internal.MakeOutput("", ""))
+		cell := bash.MakeCellFromRaw(code, "", internal.MakeOutput("", ""))
 
 		// when
 		gotContent, err := cell.Render()
@@ -43,7 +43,7 @@ func TestBashCell(t *testing.T) {
 			"",
 		)
 		output := internal.MakeOutput("hello", "")
-		cell := bash.MakeBashCellFromRaw(fencedCode, "", output)
+		cell := bash.MakeCellFromRaw(fencedCode, "", output)
 
 		// when
 		gotContent, err := cell.Render()
@@ -61,7 +61,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		cell := bash.MakeBashCellFromRaw(fencedCode, "", internal.MakeOutput("", ""))
+		cell := bash.MakeCellFromRaw(fencedCode, "", internal.MakeOutput("", ""))
 
 		// when
 		gotCell, err := cell.Execute()

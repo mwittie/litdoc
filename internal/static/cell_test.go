@@ -12,7 +12,7 @@ import (
 func TestStaticCell(t *testing.T) {
 	t.Run("renders raw content", func(t *testing.T) {
 		// given
-		cell := static.MakeStaticCellFromRaw("hello")
+		cell := static.MakeCellFromRaw("hello")
 
 		// when
 		gotContent, err := cell.Render()
@@ -24,7 +24,7 @@ func TestStaticCell(t *testing.T) {
 
 	t.Run("executes to itself", func(t *testing.T) {
 		// given
-		cell := static.MakeStaticCellFromRaw("hello")
+		cell := static.MakeCellFromRaw("hello")
 
 		// when
 		gotCell, err := cell.Execute()

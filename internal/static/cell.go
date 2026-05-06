@@ -2,15 +2,15 @@ package static
 
 import "litdoc/internal"
 
-type StaticCell struct {
+type Cell struct {
 	block internal.Block
 }
 
-func MakeStaticCellFromRaw(content string) StaticCell {
-	return StaticCell{block: internal.MakeBlockFromRaw(internal.BlockKindText, content, "", false)}
+func MakeCellFromRaw(content string) Cell {
+	return Cell{block: internal.MakeBlockFromRaw(internal.BlockKindText, content, "", false)}
 }
 
-func ParseStaticCell(
+func ParseCell(
 	block internal.Block,
 	_ []internal.Block,
 ) (
@@ -19,15 +19,15 @@ func ParseStaticCell(
 	error,
 ) {
 	// todo: test this
-	return StaticCell{block: block}, 0, nil
+	return Cell{block: block}, 0, nil
 }
 
-func (c StaticCell) Execute() (internal.Cell, error) {
+func (c Cell) Execute() (internal.Cell, error) {
 	// todo: test this
 	return c, nil
 }
 
-func (c StaticCell) Render() (string, error) {
+func (c Cell) Render() (string, error) {
 	// todo: test this
 	return c.block.Render(), nil
 }

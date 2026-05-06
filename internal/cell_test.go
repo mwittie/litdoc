@@ -440,8 +440,8 @@ func TestClassify(t *testing.T) {
 	}
 
 	parsers := map[string]internal.CellParser{
-		"static": internal.CellParserFunc(static.ParseStaticCell),
-		"bash":   internal.CellParserFunc(bash.ParseBashCell),
+		"static": internal.CellParserFunc(static.ParseCell),
+		"bash":   internal.CellParserFunc(bash.ParseCell),
 	}
 
 	for _, tt := range tests {
@@ -492,7 +492,7 @@ func TestClassify(t *testing.T) {
 
 		// when
 		_, err := internal.Classify(blocks, map[string]internal.CellParser{
-			"static": internal.CellParserFunc(static.ParseStaticCell),
+			"static": internal.CellParserFunc(static.ParseCell),
 			"bash":   failingParser,
 		})
 
@@ -515,7 +515,7 @@ func TestClassify(t *testing.T) {
 			// when
 			_, err := internal.Classify(blocks, map[string]internal.CellParser{
 				"static": failingStatic,
-				"bash":   internal.CellParserFunc(bash.ParseBashCell),
+				"bash":   internal.CellParserFunc(bash.ParseCell),
 			})
 
 			// then
@@ -534,7 +534,7 @@ func TestClassify(t *testing.T) {
 			// when
 			_, err := internal.Classify(blocks, map[string]internal.CellParser{
 				"static": failingStatic,
-				"bash":   internal.CellParserFunc(bash.ParseBashCell),
+				"bash":   internal.CellParserFunc(bash.ParseCell),
 			})
 
 			// then
@@ -546,9 +546,9 @@ func TestClassify(t *testing.T) {
 
 func cellKind(cell internal.Cell) string {
 	switch cell.(type) {
-	case static.StaticCell:
+	case static.Cell:
 		return "StaticCell"
-	case bash.BashCell:
+	case bash.Cell:
 		return "BashCell"
 	default:
 		return "unknown"
