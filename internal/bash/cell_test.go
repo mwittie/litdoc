@@ -15,26 +15,7 @@ func joinLines(lines ...string) string {
 	return strings.Join(lines, "\n")
 }
 
-func TestMakeCellFromRaw(t *testing.T) {
-	// given
-	code := joinLines(
-		"```bash",
-		"echo hello",
-		"```",
-		"",
-	)
-	output := internal.MakeOutput("hello", "")
-	cell := bash.MakeCellFromRaw(code, "", output, nil)
-
-	// when
-	got, err := cell.Render()
-
-	// then
-	require.NoError(t, err)
-	assert.Equal(t, "```bash\necho hello\n```\n"+output.Render(), got)
-}
-
-func TestParse(t *testing.T) {
+func TestParser_Parse(t *testing.T) {
 	block := internal.MakeBlockFromRaw(internal.BlockKindFencedCode, joinLines(
 		"```bash",
 		"echo hello",
@@ -45,7 +26,11 @@ func TestParse(t *testing.T) {
 	t.Run("assembles cell from block and output", func(t *testing.T) {
 		// given
 		output := internal.MakeOutput("hello", "")
-		parseOutput := func(internal.Block, []internal.Block) (internal.Output, int, error) {
+		parseOutput := func(internal.Block, []internal.Block) (
+			internal.Output,
+			int,
+			error,
+		) {
 			return output, 3, nil
 		}
 		parser := bash.NewParserWith(nil, parseOutput)
@@ -63,7 +48,11 @@ func TestParse(t *testing.T) {
 
 	t.Run("output parsing error is wrapped", func(t *testing.T) {
 		// given
-		parseOutput := func(internal.Block, []internal.Block) (internal.Output, int, error) {
+		parseOutput := func(internal.Block, []internal.Block) (
+			internal.Output,
+			int,
+			error,
+		) {
 			return internal.Output{}, 0, assert.AnError
 		}
 		parser := bash.NewParserWith(nil, parseOutput)
@@ -77,46 +66,7 @@ func TestParse(t *testing.T) {
 	})
 }
 
-func TestRender(t *testing.T) {
-	t.Run("without output", func(t *testing.T) {
-		// given
-		code := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		cell := bash.MakeCellFromRaw(code, "", internal.MakeOutput("", ""), nil)
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, code, gotContent)
-	})
-
-	t.Run("with output", func(t *testing.T) {
-		// given
-		fencedCode := joinLines(
-			"```bash",
-			"echo hello",
-			"```",
-			"",
-		)
-		output := internal.MakeOutput("hello", "")
-		cell := bash.MakeCellFromRaw(fencedCode, "", output, nil)
-
-		// when
-		gotContent, err := cell.Render()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, fencedCode+output.Render(), gotContent)
-	})
-}
-
-func TestExecute(t *testing.T) {
+func TestCell_Execute(t *testing.T) {
 	fencedCode := joinLines(
 		"```bash",
 		"echo hello",
@@ -165,5 +115,44 @@ func TestExecute(t *testing.T) {
 
 		// then
 		require.ErrorIs(t, err, assert.AnError)
+	})
+}
+
+func TestCell_Render(t *testing.T) {
+	t.Run("without output", func(t *testing.T) {
+		// given
+		code := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+			"",
+		)
+		cell := bash.MakeCellFromRaw(code, "", internal.MakeOutput("", ""), nil)
+
+		// when
+		gotContent, err := cell.Render()
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, code, gotContent)
+	})
+
+	t.Run("with output", func(t *testing.T) {
+		// given
+		fencedCode := joinLines(
+			"```bash",
+			"echo hello",
+			"```",
+			"",
+		)
+		output := internal.MakeOutput("hello", "")
+		cell := bash.MakeCellFromRaw(fencedCode, "", output, nil)
+
+		// when
+		gotContent, err := cell.Render()
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, fencedCode+output.Render(), gotContent)
 	})
 }

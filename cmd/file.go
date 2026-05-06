@@ -22,7 +22,7 @@ var fileCmd = &cobra.Command{
 		path := args[0]
 		parsers := map[string]internal.CellParser{
 			"static": static.NewParser(),
-			"bash":   bash.NewParser(bash.Runner{}),
+			"bash":   bash.MakeParser(),
 		}
 		data, err := internal.ProcessFile(path, parsers)
 		if err != nil {

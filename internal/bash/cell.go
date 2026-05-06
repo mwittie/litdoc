@@ -30,11 +30,11 @@ type Parser struct {
 	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error)
 }
 
-func NewParser(runner internal.Runner) Parser {
-	return Parser{runner: runner, parseOutput: internal.OutputFromBlocks}
+func MakeParser() Parser {
+	return makeParserFromRaw(Runner{}, internal.OutputFromBlocks)
 }
 
-func newParserWith(
+func makeParserFromRaw(
 	runner internal.Runner,
 	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error),
 ) Parser {
@@ -78,6 +78,7 @@ func (c Cell) Render() (string, error) {
 // codeBody extracts the script lines from a fenced code block's content,
 // stripping the opening and closing fence lines.
 func codeBody(content string) string {
+	// todo: does this need to be more robust?
 	lines := strings.Split(content, "\n")
 	if len(lines) < 3 {
 		return ""

@@ -1,4 +1,4 @@
 package bash
 
 var MakeCellFromRaw = makeCellFromRaw
-var NewParserWith = newParserWith
+var NewParserWith = makeParserFromRaw

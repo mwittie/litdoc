@@ -14,7 +14,6 @@ type CellParser interface {
 	Parse(block Block, following []Block) (Cell, int, error)
 }
 
-
 type InfoString struct {
 	Lang   string
 	Litdoc bool

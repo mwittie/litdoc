@@ -43,7 +43,7 @@ func TestProcessFile(t *testing.T) {
 			got, err := internal.ProcessFile(
 				f.Name(), map[string]internal.CellParser{
 					"static": static.NewParser(),
-					"bash":   bash.NewParser(bash.Runner{}),
+					"bash":   bash.MakeParser(),
 				})
 
 			// then

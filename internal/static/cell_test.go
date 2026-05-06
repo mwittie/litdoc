@@ -10,19 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMakeCellFromRaw(t *testing.T) {
-	// given
-	cell := static.MakeCellFromRaw("hello")
 
-	// when
-	got, err := cell.Render()
 
-	// then
-	require.NoError(t, err)
-	assert.Equal(t, "hello", got)
-}
-
-func TestParse(t *testing.T) {
+func TestParser_Parse(t *testing.T) {
 	// given
 	block := internal.MakeBlockFromRaw(internal.BlockKindText, "hello", "", false)
 
@@ -37,7 +27,7 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, block.Render(), rendered)
 }
 
-func TestRender(t *testing.T) {
+func TestCell_Render(t *testing.T) {
 	// given
 	cell := static.MakeCellFromRaw("hello")
 
@@ -49,7 +39,7 @@ func TestRender(t *testing.T) {
 	assert.Equal(t, "hello", got)
 }
 
-func TestExecute(t *testing.T) {
+func TestCell_Execute(t *testing.T) {
 	// given
 	cell := static.MakeCellFromRaw("hello")
 
