@@ -3,11 +3,11 @@ package static
 import "litdoc/internal"
 
 type StaticCell struct {
-	content string
+	block internal.Block
 }
 
 func MakeStaticCellFromRaw(content string) StaticCell {
-	return StaticCell{content: content}
+	return StaticCell{block: internal.MakeBlockFromRaw(internal.BlockKindText, content, "", false)}
 }
 
 func ParseStaticCell(
@@ -19,7 +19,7 @@ func ParseStaticCell(
 	error,
 ) {
 	// todo: test this
-	return StaticCell{content: internal.RenderBlock(block)}, 0, nil
+	return StaticCell{block: block}, 0, nil
 }
 
 func (c StaticCell) Execute() (internal.Cell, error) {
@@ -29,5 +29,5 @@ func (c StaticCell) Execute() (internal.Cell, error) {
 
 func (c StaticCell) Render() (string, error) {
 	// todo: test this
-	return c.content, nil
+	return c.block.Render(), nil
 }

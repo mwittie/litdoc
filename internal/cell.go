@@ -82,44 +82,6 @@ func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
 	return cells, nil
 }
 
-func RenderContent(content, indent string) string {
-	// todo: double check that I need this function
-	return RenderBlock(MakeBlockFromRaw(BlockKindFencedCode, content, indent, false))
-}
-
-func RenderBlock(b Block) string {
-	if len(b.indent) == 0 {
-		return b.content
-	}
-
-	lines := strings.Split(b.content, "\n")
-	var rendered strings.Builder
-	renderedIndent := RenderIndent(b.indent)
-	blankLineIndent := blankBlockQuoteLinePrefix(b.indent)
-	for i, line := range lines {
-		if i == len(lines)-1 && len(line) == 0 {
-			break
-		}
-		if i > 0 {
-			rendered.WriteByte('\n')
-		}
-		if len(line) == 0 {
-			rendered.WriteString(blankLineIndent)
-			continue
-		}
-		if i > 0 {
-			rendered.WriteString(renderedIndent)
-		} else if !b.continuation {
-			rendered.WriteString(b.indent)
-		}
-		rendered.WriteString(line)
-	}
-	if strings.HasSuffix(b.content, "\n") {
-		rendered.WriteByte('\n')
-	}
-	return rendered.String()
-}
-
 func blankBlockQuoteLinePrefix(indent string) string {
 	if idx := strings.LastIndex(indent, ">"); idx >= 0 {
 		return indent[:idx+1]

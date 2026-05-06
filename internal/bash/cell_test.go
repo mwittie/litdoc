@@ -24,7 +24,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		cell := bash.MakeBashCellFromRaw(code, "", internal.Output{})
+		cell := bash.MakeBashCellFromRaw(code, "", internal.MakeOutput("", ""))
 
 		// when
 		gotContent, err := cell.Render()
@@ -42,7 +42,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		output := internal.MakeOutput("hello")
+		output := internal.MakeOutput("hello", "")
 		cell := bash.MakeBashCellFromRaw(fencedCode, "", output)
 
 		// when
@@ -50,7 +50,7 @@ func TestBashCell(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, fencedCode+output.Render(""), gotContent)
+		assert.Equal(t, fencedCode+output.Render(), gotContent)
 	})
 
 	t.Run("execute produces stub output", func(t *testing.T) {
@@ -61,7 +61,7 @@ func TestBashCell(t *testing.T) {
 			"```",
 			"",
 		)
-		cell := bash.MakeBashCellFromRaw(fencedCode, "", internal.Output{})
+		cell := bash.MakeBashCellFromRaw(fencedCode, "", internal.MakeOutput("", ""))
 
 		// when
 		gotCell, err := cell.Execute()
@@ -70,6 +70,6 @@ func TestBashCell(t *testing.T) {
 		require.NoError(t, err)
 		rendered, err := gotCell.Render()
 		require.NoError(t, err)
-		assert.Equal(t, fencedCode+internal.MakeOutput("output").Render(""), rendered)
+		assert.Equal(t, fencedCode+internal.MakeOutput("output", "").Render(), rendered)
 	})
 }

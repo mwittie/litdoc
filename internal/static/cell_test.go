@@ -34,3 +34,4 @@ func TestStaticCell(t *testing.T) {
 		assert.Equal(t, cell, gotCell)
 	})
 }
+

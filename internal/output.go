@@ -11,28 +11,22 @@ const (
 )
 
 type Output struct {
-	content string
+	block Block
 }
 
-func MakeOutput(content string) Output {
-	return Output{content: content}
+func MakeOutput(content, indent string) Output {
+	if content == "" {
+		return Output{}
+	}
+	linePrefix := RenderIndent(indent)
+	assembled := "\n" + OutputBeginMarker + "\n" +
+		strings.TrimSuffix(content, "\n") + "\n" +
+		OutputEndMarker + "\n"
+	return Output{block: MakeBlockFromRaw(BlockKindText, assembled, linePrefix, false)}
 }
 
-func (o Output) Render(linePrefix string) string {
-	if o.content == "" {
-		return ""
-	}
-
-	var buf strings.Builder
-	buf.WriteString(blankBlockQuoteLinePrefix(linePrefix))
-	buf.WriteByte('\n')
-	buf.WriteString(linePrefix + OutputBeginMarker + "\n")
-	for _, line := range strings.Split(strings.TrimSuffix(o.content, "\n"), "\n") {
-		buf.WriteString(linePrefix + line + "\n")
-	}
-	buf.WriteString(linePrefix + OutputEndMarker + "\n")
-
-	return buf.String()
+func (o Output) Render() string {
+	return o.block.Render()
 }
 
 func isOutputBegin(b Block) bool {
@@ -98,7 +92,7 @@ func OutputFromBlocks(litdoc Block, blocks []Block) (Output, int, error) {
 			// Consume the newline or trailing whitespace after an inline end
 			// marker so callers resume at the next meaningful block.
 			i = skipOutputMarkerLineRemainder(blocks, i)
-			return MakeOutput(buf.String()), i, nil
+			return MakeOutput(buf.String(), litdoc.indent), i, nil
 		}
 		content, err := outputContent(blocks[i], outputIndent)
 		if err != nil {

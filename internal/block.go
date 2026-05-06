@@ -51,8 +51,37 @@ func (b Block) Content() string { return b.content }
 
 func (b Block) Continuation() bool { return b.continuation }
 
-func (b Block) String() string {
-	return fmt.Sprintf("{%s %q}", b.kind, b.content)
+func (b Block) Render() string {
+	if len(b.indent) == 0 {
+		return b.content
+	}
+
+	lines := strings.Split(b.content, "\n")
+	var rendered strings.Builder
+	renderedIndent := RenderIndent(b.indent)
+	blankLineIndent := blankBlockQuoteLinePrefix(b.indent)
+	for i, line := range lines {
+		if i == len(lines)-1 && len(line) == 0 {
+			break
+		}
+		if i > 0 {
+			rendered.WriteByte('\n')
+		}
+		if len(line) == 0 {
+			rendered.WriteString(blankLineIndent)
+			continue
+		}
+		if i > 0 {
+			rendered.WriteString(renderedIndent)
+		} else if !b.continuation {
+			rendered.WriteString(b.indent)
+		}
+		rendered.WriteString(line)
+	}
+	if strings.HasSuffix(b.content, "\n") {
+		rendered.WriteByte('\n')
+	}
+	return rendered.String()
 }
 
 func MakeBlocksFromMarkdown(content []byte) ([]Block, error) {
