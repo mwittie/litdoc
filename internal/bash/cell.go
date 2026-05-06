@@ -26,8 +26,19 @@ func ParseCell(
 	int,
 	error,
 ) {
-	// todo: test this
-	output, consumed, err := internal.OutputFromBlocks(block, following)
+	return parseCellWith(block, following, internal.OutputFromBlocks)
+}
+
+func parseCellWith(
+	block internal.Block,
+	following []internal.Block,
+	parseOutput func(internal.Block, []internal.Block) (internal.Output, int, error),
+) (
+	internal.Cell,
+	int,
+	error,
+) {
+	output, consumed, err := parseOutput(block, following)
 	if err != nil {
 		return nil, 0, fmt.Errorf("parsing output: %w", err)
 	}
@@ -35,7 +46,6 @@ func ParseCell(
 }
 
 func (c Cell) Execute() (internal.Cell, error) {
-	// todo: test this
 	return Cell{
 		block:  c.block,
 		output: internal.MakeOutput("output", c.block.Indent()),
@@ -43,6 +53,5 @@ func (c Cell) Execute() (internal.Cell, error) {
 }
 
 func (c Cell) Render() (string, error) {
-	// todo: test this
 	return c.block.Render() + c.output.Render(), nil
 }

@@ -18,16 +18,13 @@ func ParseCell(
 	int,
 	error,
 ) {
-	// todo: test this
 	return Cell{block: block}, 0, nil
 }
 
 func (c Cell) Execute() (internal.Cell, error) {
-	// todo: test this
 	return c, nil
 }
 
 func (c Cell) Render() (string, error) {
-	// todo: test this
 	return c.block.Render(), nil
 }

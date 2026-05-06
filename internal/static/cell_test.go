@@ -3,35 +3,60 @@ package static_test
 import (
 	"testing"
 
+	"litdoc/internal"
 	"litdoc/internal/static"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestStaticCell(t *testing.T) {
-	t.Run("renders raw content", func(t *testing.T) {
-		// given
-		cell := static.MakeCellFromRaw("hello")
+func TestMakeCellFromRaw(t *testing.T) {
+	// given
+	cell := static.MakeCellFromRaw("hello")
 
-		// when
-		gotContent, err := cell.Render()
+	// when
+	got, err := cell.Render()
 
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, "hello", gotContent)
-	})
-
-	t.Run("executes to itself", func(t *testing.T) {
-		// given
-		cell := static.MakeCellFromRaw("hello")
-
-		// when
-		gotCell, err := cell.Execute()
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, cell, gotCell)
-	})
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, "hello", got)
 }
 
+func TestParseCell(t *testing.T) {
+	// given
+	block := internal.MakeBlockFromRaw(internal.BlockKindText, "hello", "", false)
+
+	// when
+	cell, consumed, err := static.ParseCell(block, nil)
+
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, 0, consumed)
+	rendered, err := cell.Render()
+	require.NoError(t, err)
+	assert.Equal(t, block.Render(), rendered)
+}
+
+func TestRender(t *testing.T) {
+	// given
+	cell := static.MakeCellFromRaw("hello")
+
+	// when
+	got, err := cell.Render()
+
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, "hello", got)
+}
+
+func TestExecute(t *testing.T) {
+	// given
+	cell := static.MakeCellFromRaw("hello")
+
+	// when
+	got, err := cell.Execute()
+
+	// then
+	require.NoError(t, err)
+	assert.Equal(t, cell, got)
+}
