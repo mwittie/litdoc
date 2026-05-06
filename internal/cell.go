@@ -80,22 +80,6 @@ func Classify(blocks []Block, parsers map[string]CellParser) ([]Cell, error) {
 	return cells, nil
 }
 
-func blankBlockQuoteLinePrefix(indent string) string {
-	if idx := strings.LastIndex(indent, ">"); idx >= 0 {
-		return indent[:idx+1]
-	}
-	return ""
-}
-
-func RenderIndent(indent string) string {
-	// todo: should this be in this file?
-	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
-		prefixLen := idx + len("> ")
-		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
-	}
-	return strings.Repeat(" ", len(indent))
-}
-
 func Execute(cells []Cell) ([]Cell, error) {
 	var executedCells []Cell
 	for _, c := range cells {

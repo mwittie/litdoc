@@ -66,6 +66,21 @@ func (b Block) rawInfoString() string {
 	}
 }
 
+func blankBlockQuoteLinePrefix(indent string) string {
+	if idx := strings.LastIndex(indent, ">"); idx >= 0 {
+		return indent[:idx+1]
+	}
+	return ""
+}
+
+func RenderIndent(indent string) string {
+	if idx := strings.LastIndex(indent, "> "); idx >= 0 {
+		prefixLen := idx + len("> ")
+		return indent[:prefixLen] + strings.Repeat(" ", len(indent)-prefixLen)
+	}
+	return strings.Repeat(" ", len(indent))
+}
+
 func (b Block) Render() string {
 	if len(b.indent) == 0 {
 		return b.content

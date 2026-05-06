@@ -159,70 +159,6 @@ func TestInfoStringFromBlock(t *testing.T) {
 	}
 }
 
-func TestExecute(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
-		// given
-		result := NewMockCell(t)
-		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(result, nil)
-		cells := []internal.Cell{cell}
-
-		// when
-		gotCells, err := internal.Execute(cells)
-
-		// then
-		require.NoError(t, err)
-		require.Len(t, gotCells, 1)
-		assert.Equal(t, result, gotCells[0])
-	})
-
-	t.Run("cell.Execute fails", func(t *testing.T) {
-		// given
-		cell := NewMockCell(t)
-		cell.EXPECT().Execute().Return(nil, assert.AnError)
-		cells := []internal.Cell{cell}
-
-		// when
-		_, err := internal.Execute(cells)
-
-		// then
-		require.ErrorContains(t, err, "executing cell")
-		require.ErrorIs(t, err, assert.AnError)
-	})
-}
-
-func TestCompose(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
-		// given
-		cell1 := NewMockCell(t)
-		cell1.EXPECT().Render().Return("hello", nil)
-		cell2 := NewMockCell(t)
-		cell2.EXPECT().Render().Return(" world", nil)
-		cells := []internal.Cell{cell1, cell2}
-
-		// when
-		got, err := internal.Compose(cells)
-
-		// then
-		require.NoError(t, err)
-		assert.Equal(t, "hello world", got)
-	})
-
-	t.Run("cell.Render fails", func(t *testing.T) {
-		// given
-		cell := NewMockCell(t)
-		cell.EXPECT().Render().Return("", assert.AnError)
-		cells := []internal.Cell{cell}
-
-		// when
-		_, err := internal.Compose(cells)
-
-		// then
-		require.ErrorContains(t, err, "rendering cell")
-		require.ErrorIs(t, err, assert.AnError)
-	})
-}
-
 func TestClassify(t *testing.T) {
 	type wantCell struct {
 		kind     string
@@ -617,4 +553,68 @@ func cellKind(cell internal.Cell) string {
 	default:
 		return "unknown"
 	}
+}
+
+func TestExecute(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		// given
+		result := NewMockCell(t)
+		cell := NewMockCell(t)
+		cell.EXPECT().Execute().Return(result, nil)
+		cells := []internal.Cell{cell}
+
+		// when
+		gotCells, err := internal.Execute(cells)
+
+		// then
+		require.NoError(t, err)
+		require.Len(t, gotCells, 1)
+		assert.Equal(t, result, gotCells[0])
+	})
+
+	t.Run("cell.Execute fails", func(t *testing.T) {
+		// given
+		cell := NewMockCell(t)
+		cell.EXPECT().Execute().Return(nil, assert.AnError)
+		cells := []internal.Cell{cell}
+
+		// when
+		_, err := internal.Execute(cells)
+
+		// then
+		require.ErrorContains(t, err, "executing cell")
+		require.ErrorIs(t, err, assert.AnError)
+	})
+}
+
+func TestCompose(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		// given
+		cell1 := NewMockCell(t)
+		cell1.EXPECT().Render().Return("hello", nil)
+		cell2 := NewMockCell(t)
+		cell2.EXPECT().Render().Return(" world", nil)
+		cells := []internal.Cell{cell1, cell2}
+
+		// when
+		got, err := internal.Compose(cells)
+
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, "hello world", got)
+	})
+
+	t.Run("cell.Render fails", func(t *testing.T) {
+		// given
+		cell := NewMockCell(t)
+		cell.EXPECT().Render().Return("", assert.AnError)
+		cells := []internal.Cell{cell}
+
+		// when
+		_, err := internal.Compose(cells)
+
+		// then
+		require.ErrorContains(t, err, "rendering cell")
+		require.ErrorIs(t, err, assert.AnError)
+	})
 }
